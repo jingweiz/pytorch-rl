@@ -1,0 +1,5 @@
+rl/*.pyc
+rl/agents/*.pyc
+utils/*.pyc
+models/*
+logs/*
