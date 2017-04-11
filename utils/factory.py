@@ -1,13 +1,13 @@
 from __future__ import absolute_import
 from __future__ import division
 
-from rl.envs import GymEnv, AtariRamEnv, AtariEnv, LabEnv
+from rl.env import GymEnv, AtariRamEnv, AtariEnv, LabEnv
 EnvDict = {"gym":       GymEnv,                 # classic control games from openai w/ full-state-vector as input
            "atari-ram": AtariRamEnv,            # atari integrations from openai, with full-state-vector as input
            "atari":     AtariEnv,               # atari integrations from openai, with pixel-level input
            "lab":       LabEnv}                 # TODO
 
-from rl.models import MlpModel, CnnModel, A3CMlpModel, A3CCnnModel
+from rl.model import MlpModel, CnnModel, A3CMlpModel, A3CCnnModel
 ModelDict = {"mlp":     MlpModel,               # for full-state  input envs
              "cnn":     CnnModel,               # for pixel-level input envs
              "a3c-mlp": A3CMlpModel,            # for full-state  input envs
