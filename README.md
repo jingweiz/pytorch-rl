@@ -1,4 +1,7 @@
-# Deep Reinforcement Learning with **pytorch** & **visdom**
+# **Deep Reinforcement Learning** with
+# **pytorch** & **visdom**
+*******
+
 
 * Sample testings of trained agents (DQN on Breakout, A3C on Pong, DoubleDQN on CartPole):
 <table>
@@ -59,6 +62,8 @@
 [WARNING ] (MainProcess) Resume Training @ Step: 2500
 ...
 ```
+*******
+
 
 ## What is included?
 This repo currently contains the following agents:
@@ -74,11 +79,12 @@ Work in progress:
 
 
 ## Code structure & Naming conventions:
+NOTE: we follow the exact code structure as [pytorch-dnc](https://github.com/jingweiz/pytorch-dnc) so as to make the code easily transplantable.
 * ```./utils/factory.py```
 > We suggest the users refer to ```./utils/factory.py```,
  where we list all the integrated ```Env```, ```Model```,
  ```Memory```, ```Agent``` into ```Dict```'s.
- All of those four core classes are implemented in ```./rl/```.
+ All of those four core classes are implemented in ```./core/```.
  The factory pattern in ```./utils/factory.py``` makes the code super clean,
  as no matter what type of ```Agent``` you want to train,
  or which type of ```Env``` you want to train on,
@@ -96,6 +102,7 @@ Work in progress:
 - [PyTorch](http://pytorch.org/)
 - [Visdom](https://github.com/facebookresearch/visdom)
 - [OpenAI Gym](https://github.com/openai/gym)
+*******
 
 
 ## How to run:
@@ -106,16 +113,17 @@ You only need to modify some parameters in ```./utils/options.py``` to train a n
 > * ```line 33```: choose the entry you just added
 > * ```line 29-30```: fill in your machine/cluster ID (```MACHINE```) and timestamp (```TIMESTAMP```) to define your training signature (```MACHINE_TIMESTAMP```),
  the corresponding model file and the log file of this training will be saved under this signature (```./models/MACHINE_TIMESTAMP.pth``` & ```./logs/MACHINE_TIMESTAMP.log``` respectively).
- Also the visdom visualization will be displayed under this signature (first active the visdom server by type in bash: ```python -m visdom.server &```, then open this address in your browser: ```http://localhost:8097/env/MACHINE_TIMESTAMP```)
+ Also the visdom visualization will be displayed under this signature (first activate the visdom server by type in bash: ```python -m visdom.server &```, then open this address in your browser: ```http://localhost:8097/env/MACHINE_TIMESTAMP```)
 > * ```line 32```: to train a model, set ```mode=1``` (training visualization will be under ```http://localhost:8097/env/MACHINE_TIMESTAMP```); to test the model of this current training, all you need to do is to set ```mode=2``` (testing visualization will be under ```http://localhost:8097/env/MACHINE_TIMESTAMP_test```).
 
 * Run:
 > ```python main.py```
+*******
 
 
 ## Repos we referred to during the development of this repo:
-* [keras-rl](https://github.com/matthiasplappert/keras-rl)
-* [pytorch-dqn](https://github.com/transedward/pytorch-dqn)
-* [pytorch-a3c](https://github.com/ikostrikov/pytorch-a3chttps://github.com/ikostrikov/pytorch-a3c)
-* [A3C-PyTorch](https://github.com/onlytailei/A3C-PyTorch)
-* And a private implementation of A3C from [@stokasto](https://github.com/stokastohttps://github.com/stokasto)
+* [matthiasplappert/keras-rl](https://github.com/matthiasplappert/keras-rl)
+* [transedward/pytorch-dqn](https://github.com/transedward/pytorch-dqn)
+* [ikostrikov/pytorch-a3c](https://github.com/ikostrikov/pytorch-a3c)
+* [onlytailei/A3C-PyTorch](https://github.com/onlytailei/A3C-PyTorch)
+* And a private implementation of A3C from [@stokasto](https://github.com/stokasto)

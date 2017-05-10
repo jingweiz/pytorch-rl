@@ -2,8 +2,8 @@ from __future__ import absolute_import
 from __future__ import division
 import torch.multiprocessing as mp
 
-from rl.agent import Agent
-from rl.agents.a3cSingleProcess import A3CLearner, A3CEvaluator, A3CTester
+from core.agent import Agent
+from core.agents.a3cSingleProcess import A3CLearner, A3CEvaluator, A3CTester
 
 class A3CAgent(Agent):
     def __init__(self, args, env_prototype, model_prototype, memory_prototype):
