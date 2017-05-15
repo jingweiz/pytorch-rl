@@ -117,7 +117,7 @@ You only need to modify some parameters in ```./utils/options.py``` to train a n
 > * ```line 32```: to train a model, set ```mode=1``` (training visualization will be under ```http://localhost:8097/env/MACHINE_TIMESTAMP```); to test the model of this current training, all you need to do is to set ```mode=2``` (testing visualization will be under ```http://localhost:8097/env/MACHINE_TIMESTAMP_test```).
 
 * Run:
-> ```python main.py```                                                                       
+> ```python main.py```
 *******
 
 
