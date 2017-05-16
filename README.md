@@ -1,5 +1,6 @@
 # **Deep Reinforcement Learning** with
 # **pytorch** & **visdom**
+# (add A3C continuous control)
 *******
 
 
