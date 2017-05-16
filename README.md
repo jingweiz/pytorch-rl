@@ -9,6 +9,7 @@
     <td><img src="/assets/breakout.gif?raw=true" width="200"></td>
     <td><img src="/assets/a3c_pong.gif?raw=true" width="200"></td>
     <td><img src="/assets/cartpole.gif?raw=true" width="200"></td>
+    <td><img src="/assets/a3c_continuous.gif?raw=true" width="200"></td>
   </tr>
 </table>
 
