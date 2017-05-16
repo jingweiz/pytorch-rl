@@ -34,7 +34,7 @@ class Params(object):   # NOTE: shared across all modules
         self.config      = 6
 
         self.seed        = 123
-        self.render      = False        # whether render the window from the original envs or not
+        self.render      = True        # whether render the window from the original envs or not
         self.visualize   = True         # whether do online plotting and stuff or not
         self.save_best   = False        # save model w/ highest reward if True, otherwise always save the latest model
 
