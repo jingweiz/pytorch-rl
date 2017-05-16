@@ -1,1 +1,5 @@
-*.pyc
+core/*.pyc
+core/agents/*.pyc
+utils/*.pyc
+models/*
+logs/*
