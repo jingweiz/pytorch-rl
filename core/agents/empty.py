@@ -3,7 +3,7 @@ from __future__ import division
 import random
 
 from utils.helpers import Experience
-from core.agent import Agent
+from rl.agent import Agent
 
 class EmptyAgent(Agent):
     def __init__(self, args, env_prototype, model_prototype, memory_prototype):
@@ -41,8 +41,6 @@ class EmptyAgent(Agent):
             self.experience = self.env.step(action)
             if self.experience.terminal1 or self.early_stop and (episode_steps + 1) >= self.early_stop:
                 should_start_new = True
-
-            self.step += 1
 
     def test_model(self):
         pass

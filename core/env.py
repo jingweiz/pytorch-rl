@@ -2,6 +2,14 @@ from __future__ import absolute_import
 from __future__ import division
 import numpy as np
 from copy import deepcopy
+from gym.spaces.box import Box
+import inspect
+
+import cv2
+import rospy
+from cv_bridge import CvBridge
+from geometry_msgs.msg import Twist
+from gym_style_gazebo.srv import PytorchRL
 
 from utils.helpers import Experience            # NOTE: here state0 is always "None"
 from utils.helpers import preprocessAtari, rgb2gray, rgb2y, scale
@@ -56,7 +64,10 @@ class Env(object):
 
     @property
     def action_dim(self):
-        return self.env.action_space.n
+        if isinstance(self.env.action_space, Box):
+            return self.env.action_space.shape[0]
+        else:
+            return self.env.action_space.n
 
     def render(self):       # render using the original gl window
         raise NotImplementedError("not implemented in base calss")
@@ -88,6 +99,8 @@ class GymEnv(Env):  # low dimensional observations
         # state space setup
         self.logger.warning("State  Space: %s", self.state_shape)
 
+        # continuous space
+        self.enable_continuous = args.enable_continuous
     def _preprocessState(self, state):    # NOTE: here no preprecessing is needed
         return state
 
@@ -120,7 +133,10 @@ class GymEnv(Env):  # low dimensional observations
 
     def step(self, action_index):
         self.exp_action = action_index
-        self.exp_state1, self.exp_reward, self.exp_terminal1, _ = self.env.step(self.actions[self.exp_action])
+        if self.enable_continuous:
+            self.exp_state1, self.exp_reward, self.exp_terminal1, _ = self.env.step(self.exp_action)
+        else:
+            self.exp_state1, self.exp_reward, self.exp_terminal1, _ = self.env.step(self.actions[self.exp_action])
         return self._get_experience()
 
 class AtariRamEnv(Env):  # atari games w/ ram states as input
@@ -234,3 +250,108 @@ class LabEnv(Env):
         super(LabEnv, self).__init__(args, env_ind)
 
         assert self.env_type == "lab"
+
+class GazeboEnv(Env):
+    """Build the gym stle gazebo training env"""
+
+    def __init__(self, args,env_ind=0):
+        super(GazeboEnv, self).__init__(args,env_ind)
+        # TODO Set master uri here
+        # os.environ["ROS_MASTER_URI"] = master_uri
+        self.simulation_service = rospy.ServiceProxy('/gazebo_env_io/pytorch_io_service',PytorchRL)
+        self.bridge = CvBridge()
+        self.img_encoding_type = args.img_encoding_type
+        self.hei_state = args.hei_state
+        self.wid_state = args.wid_state
+        self.preprocess_mode = args.preprocess_mode if not None else 0 # 0(crop&resize) | 1(rgb2gray) | 2(rgb2y)
+
+        # args should include start position/target position
+        # angular val and linear val
+
+        self.logger.warning("Action Space: %s", "2")
+
+        # state space setup
+        self.logger.warning("State  Space: %s", "[160,120], 4")
+        #config move command
+        self.move_command = Twist()
+        self.move_command.linear.x = 2
+        self.move_command.linear.y = 0
+        self.move_command.linear.z = 0
+        self.move_command.angular.x = 0
+        self.move_command.angular.z = 2
+        self.move_command.angular.y = 0
+
+        #config reset flag
+        self.set_flag = False
+
+        #speed constraint
+        self.max_linear_val = rospy.get_param("/MAX_LINEAR_VAL")
+        self.max_angular_val = rospy.get_param("/MAX_ANGULAR_VAL")
+
+    @property
+    def action_dim(self):
+        return 2
+
+    @property
+    def state_shape(self):
+        return (self.hei_state, self.wid_state)
+
+    def _preprocessState(self, state):
+        # normalization the depth image
+        #img_ = self.bridge.imgmsg_to_cv2(state[0], self.img_encoding_type).astype(np.float32)
+        img_ = self.bridge.imgmsg_to_cv2(state[0], self.img_encoding_type)
+        # TODO add noise to image and check the NAN value
+        if self.preprocess_mode == 3:   # for depth image
+            img_ = scale(img_, self.hei_state, self.wid_state) / 255.
+        if self.preprocess_mode == 2:   # rgb2y
+            img_ = scale(rgb2y(img_), self.hei_state, self.wid_state) / 255.
+        elif self.preprocess_mode == 1: # rgb2gray
+            img_ = scale(rgb2gray(img_), self.hei_state, self.wid_state) / 255.
+        elif self.preprocess_mode == 0: # do nothing
+            pass
+        img_.reshape((self.hei_state, self.wid_state))
+
+        return [img_, np.array(state[1])]
+
+    def _preprocessAction(self, action):
+        # action[0] is in [0,1]
+        # action[1] is in [-1,1]
+        self.move_command.linear.x = action[0,0] * self.max_linear_val
+        self.move_command.angular.z = action[0,1] * self.max_angular_val
+
+    def step(self, exp_action):
+        self._preprocessAction(exp_action)
+        try:
+            response = self.simulation_service(self.move_command, self.set_flag)
+            #self.move_command.angular.z = self.max_angular_val * actions[0]
+            #self.move_command.linear.x = self.max_linear_val *  actions[1]
+            self.exp_state1 = [response.state_1, response.state_2.data]
+            self.exp_reward = response.reward
+            self.exp_terminal1 = response.terminal
+        except rospy.ServiceException, e:
+            print("Service call failed during step: %s"%e)
+
+        return self._get_experience()
+
+    def render(self):
+        if self.mode == 2:
+            frame = self.exp_state1[0]
+            frame_name = self.img_dir + "Gazebo_frame_%04d.jpg" % self.frame_ind
+            self.imsave(frame_name, frame)
+            self.logger.warning("Saved  Frame    @ Step: " + str(self.frame_ind) + " To: " + frame_name)
+            self.frame_ind += 1
+            return frame
+        else:
+            pass
+
+    def reset(self):
+        # call the service with reset flag
+        self._reset_experience()
+        self.set_flag = True
+        try:
+            response = self.simulation_service(self.move_command, self.set_flag)
+            self.set_flag = False
+        except rospy.ServiceException, e:
+            print("Service call failed during step: %s"%e)
+        self.exp_state1 = [response.state_1, response.state_2.data]
+        return self._get_experience()

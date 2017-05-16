@@ -10,7 +10,6 @@
     <td><img src="/assets/a3c_pong.gif?raw=true" width="200"></td>
     <td><img src="/assets/cartpole.gif?raw=true" width="200"></td>
   </tr>
-</table>
 
 * Sample on-line plotting while training an A3C agent on Pong (with 16 learner processes):
 ![a3c_pong_plot](/assets/a3c_pong.png)
@@ -62,8 +61,6 @@
 [WARNING ] (MainProcess) Resume Training @ Step: 2500
 ...
 ```
-*******
-
 
 ## What is included?
 This repo currently contains the following agents:

@@ -28,7 +28,7 @@ def loggerConfig(log_file, verbose=2):
 Experience          = namedtuple('Experience',          'state0, action, reward, state1, terminal1')
 # NOTE: also used for on-policy methods for collect experiences over a rollout of an episode
 # NOTE: policy_vb & value0_vb for storing output Variables along a rollout # NOTE: they should not be detached from the graph!
-AugmentedExperience = namedtuple('AugmentedExperience', 'state0, action, reward, state1, terminal1, policy_vb, value0_vb')
+AugmentedExperience = namedtuple('AugmentedExperience', 'state0, action, reward, state1, terminal1, policy_vb, sigmoid_vb, value0_vb')
 
 def preprocessAtari(frame):
     frame = frame[34:34 + 160, :160]
@@ -54,7 +54,7 @@ def rgb2y(rgb):
     return y_image
 
 def scale(image, hei_image, wid_image):
-    return cv2.resize(image, (hei_image, wid_image),
+    return cv2.resize(image, (wid_image, hei_image), # better change hei and wid
                       interpolation=cv2.INTER_LINEAR)
 
 def one_hot(n_classes, labels):
