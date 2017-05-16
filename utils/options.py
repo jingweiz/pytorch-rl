@@ -220,7 +220,7 @@ class AgentParams(Params):  # hyperparameters for drl agents
             self.early_stop          = None     # max #steps per episode
             self.gamma               = 0.99
             self.clip_grad           = 1.#np.inf
-            self.lr                 = 0.001
+            self.lr                  = 0.001
             self.eval_freq           = 2500     # NOTE: here means every this many steps
             self.eval_steps          = 1000
             self.prog_freq           = self.eval_freq

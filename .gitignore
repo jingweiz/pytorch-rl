@@ -1,4 +1,5 @@
-*.pyc
-*.img
-*.pth
-*.log
+core/*.pyc
+core/agents/*.pyc
+utils/*.pyc
+models/*
+logs/*

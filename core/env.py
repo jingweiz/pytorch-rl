@@ -101,6 +101,7 @@ class GymEnv(Env):  # low dimensional observations
 
         # continuous space
         self.enable_continuous = args.enable_continuous
+    
     def _preprocessState(self, state):    # NOTE: here no preprecessing is needed
         return state
 

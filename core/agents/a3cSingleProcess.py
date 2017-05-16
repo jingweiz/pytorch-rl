@@ -58,6 +58,7 @@ class A3CSingleProcess(mp.Process):
         else:
             self.lstm_hidden_vb = (Variable(torch.zeros(1, self.master.hidden_dim).type(self.master.dtype)),
                                Variable(torch.zeros(1, self.master.hidden_dim).type(self.master.dtype)))
+    
     # NOTE: to be called at the beginning of each rollout, detach the previous variable from the graph
     def _reset_lstm_hidden_vb_rollout(self):
         self.lstm_hidden_vb = (Variable(self.lstm_hidden_vb[0].data),

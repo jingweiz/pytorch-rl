@@ -6,7 +6,7 @@ import time
 import torch
 from torch.autograd import Variable
 
-from rl.agent import Agent
+from core.agent import Agent
 
 class DQNAgent(Agent):
     def __init__(self, args, env_prototype, model_prototype, memory_prototype):

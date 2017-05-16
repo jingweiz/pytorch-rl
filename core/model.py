@@ -6,9 +6,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 
-# for gazeboenv
-
-
 from utils.init_weights import init_weights, normalized_columns_initializer
 
 class Model(nn.Module):
