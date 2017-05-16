@@ -19,8 +19,7 @@ CONFIGS = [
 [ "dqn",      "atari",     "PongDeterministic-v3",     "cnn",      "sequential"],  # 3
 [ "dqn",      "atari",     "BreakoutDeterministic-v3", "cnn",      "sequential"],  # 4
 [ "a3c",      "atari",     "PongDeterministic-v3",     "a3c-cnn",  "none"      ],  # 5
-[ "a3c",      "gym",       "InvertedPendulum-v1",      "a3c-mjc",  "none"      ],  # 6
-[ "a3c",      "gazebo",    "Robot Nav",                "a3c-gaz",  "none"      ]   # 7
+[ "a3c",      "gym",       "InvertedPendulum-v1",      "a3c-mjc",  "none"      ]  # 6
 ]
 
 class Params(object):   # NOTE: shared across all modules

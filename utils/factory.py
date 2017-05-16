@@ -1,19 +1,17 @@
 from __future__ import absolute_import
 from __future__ import division
 
-from core.env import GymEnv, AtariRamEnv, AtariEnv, LabEnv, GazeboEnv
+from core.env import GymEnv, AtariRamEnv, AtariEnv, LabEnv
 EnvDict = {"gym":       GymEnv,                 # classic control games from openai w/ full-state-vector as input
            "atari-ram": AtariRamEnv,            # atari integrations from openai, with full-state-vector as input
            "atari":     AtariEnv,               # atari integrations from openai, with pixel-level input
-           "lab":       LabEnv,
-           "gazebo":    GazeboEnv}              # GazeboEnv
+           "lab":       LabEnv}
 
-from core.model import MlpModel, CnnModel, A3CMlpModel, A3CCnnModel, A3CGazModel, A3CMjcModel
+from core.model import MlpModel, CnnModel, A3CMlpModel, A3CCnnModel, A3CMjcModel
 ModelDict = {"mlp":     MlpModel,               # for full-state  input envs
              "cnn":     CnnModel,               # for pixel-level input envs
              "a3c-mlp": A3CMlpModel,            # for full-state  input envs
              "a3c-cnn": A3CCnnModel,            # for pixel-level input envs
-             "a3c-gaz": A3CGazModel,            # for gazebo continuous input envs
              "a3c-mjc": A3CMjcModel}            # for mujoco continuous
 
 from core.memory import SequentialMemory
