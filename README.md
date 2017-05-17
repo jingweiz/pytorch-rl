@@ -3,12 +3,13 @@
 *******
 
 
-* Sample testings of trained agents (DQN on Breakout, A3C on Pong, DoubleDQN on CartPole):
+* Sample testings of trained agents (DQN on Breakout, A3C on Pong, DoubleDQN on CartPole, continuous A3C on InvertedPendulum(MuJoCo)):
 <table>
   <tr>
     <td><img src="/assets/breakout.gif?raw=true" width="200"></td>
     <td><img src="/assets/a3c_pong.gif?raw=true" width="200"></td>
     <td><img src="/assets/cartpole.gif?raw=true" width="200"></td>
+    <td><img src="/assets/a3c_con.gif?raw=true" width="200"></td>
   </tr>
 </table>
 
