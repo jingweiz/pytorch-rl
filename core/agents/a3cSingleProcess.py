@@ -13,7 +13,7 @@ import torch.nn.functional as F
 from utils.helpers import Experience, AugmentedExperience, one_hot
 
 # NOTE global variable pi
-pi = Variable(torch.FloatTensor([math.pi]))
+pi_vb = Variable(torch.FloatTensor([math.pi]))
 
 class A3CSingleProcess(mp.Process):
     def __init__(self, master, process_id=0):
@@ -69,9 +69,9 @@ class A3CSingleProcess(mp.Process):
 
     def _preprocessState(self, state, volatile_=False):
         if isinstance(state, list):
-            state_ts_1 = Variable(torch.from_numpy(state[0]).unsqueeze(0).type(self.master.dtype), volatile=volatile_)
-            state_ts_2 = Variable(torch.from_numpy(state[1]).unsqueeze(0).type(self.master.dtype), volatile=volatile_)
-            return [state_ts_1, state_ts_2]
+            state_1_ts = Variable(torch.from_numpy(state[0]).unsqueeze(0).type(self.master.dtype), volatile=volatile_)
+            state_2_ts = Variable(torch.from_numpy(state[1]).unsqueeze(0).type(self.master.dtype), volatile=volatile_)
+            return [state_1_ts, state_2_ts]
         else:
             state_ts = Variable(torch.from_numpy(state).unsqueeze(0).type(self.master.dtype), volatile=volatile_)
             return state_ts
@@ -106,7 +106,7 @@ class A3CSingleProcess(mp.Process):
 
     def _normal(self, x, mu, sigma_sq):
         a = (-1*(x-mu).pow(2)/(2*sigma_sq)).exp()
-        b = 1/(2*sigma_sq*pi.expand_as(sigma_sq)).sqrt()
+        b = 1/(2*sigma_sq*pi_vb.expand_as(sigma_sq)).sqrt()
         return (a*b).log()
 
     def run(self):
@@ -215,7 +215,7 @@ class A3CLearner(A3CSingleProcess):
             gae_ts   = self.master.gamma * gae_ts * self.master.tau + tderr_ts
             if self.master.enable_continuous:
                 _log_prob = self._normal(action_batch_vb[i], policy_vb[i], sigma_vb[i])
-                _entropy = -0.5*((sigma_vb[i]+2*pi.expand_as(sigma_vb[i])).log()+1)
+                _entropy = -0.5*((sigma_vb[i]+2*pi_vb.expand_as(sigma_vb[i])).log()+1)
                 policy_loss_vb = policy_loss_vb - (_log_prob * Variable(gae_ts).expand_as(_log_prob)).sum() - 0.01 * _entropy.sum()
             else:
                 policy_loss_vb = policy_loss_vb - policy_log_vb[i] * Variable(gae_ts) - 0.01 * entropy_vb[i]
@@ -446,7 +446,7 @@ class A3CEvaluator(A3CSingleProcess):
                 # This episode is finished, report and reset
                 # NOTE make no sense for continuous
                 if self.master.enable_continuous:
-                    eval_entropy_log.append([-0.5*((sig_vb+2*pi.expand_as(sig_vb)).log()+1).data.numpy()])
+                    eval_entropy_log.append([-0.5*((sig_vb+2*pi_vb.expand_as(sig_vb)).log()+1).data.numpy()])
                 else:
                     eval_entropy_log.append([np.mean((-torch.log(p_vb.data.squeeze()) * p_vb.data.squeeze()).numpy())])
                 eval_v_log.append([v_vb.data.numpy()])
