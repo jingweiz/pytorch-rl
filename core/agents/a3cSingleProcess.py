@@ -195,9 +195,9 @@ class A3CLearner(A3CSingleProcess):
             action_batch_vb = Variable(torch.from_numpy(np.array(self.rollout.action)).long())
             if self.master.use_cuda:
                 action_batch_vb = action_batch_vb.cuda()
-            policy_log_vb = [torch.log(policy_vb[i]) for i in xrange(rollout_steps)]
-            entropy_vb    = [- (policy_log_vb[i] * policy_vb[i]).sum(1) for i in xrange(rollout_steps)]
-            policy_log_vb = [policy_log_vb[i].gather(1, action_batch_vb[i].unsqueeze(0)) for i in xrange(rollout_steps) ]
+            policy_log_vb = [torch.log(policy_vb[i]) for i in range(rollout_steps)]
+            entropy_vb    = [- (policy_log_vb[i] * policy_vb[i]).sum(1) for i in range(rollout_steps)]
+            policy_log_vb = [policy_log_vb[i].gather(1, action_batch_vb[i].unsqueeze(0)) for i in range(rollout_steps) ]
         valueT_vb     = self._get_valueT_vb()
         self.rollout.value0_vb.append(Variable(valueT_vb.data)) # NOTE: only this last entry is Volatile, all others are still in the graph
         gae_ts        = torch.zeros(1, 1)
@@ -205,7 +205,7 @@ class A3CLearner(A3CSingleProcess):
         # compute loss
         policy_loss_vb = Variable(torch.zeros(1, 1))
         value_loss_vb  = Variable(torch.zeros(1, 1))
-        for i in reversed(xrange(rollout_steps)):
+        for i in reversed(range(rollout_steps)):
             valueT_vb     = self.master.gamma * valueT_vb + self.rollout.reward[i]
             advantage_vb  = valueT_vb - self.rollout.value0_vb[i]
             value_loss_vb = value_loss_vb + 0.5 * advantage_vb.pow(2)
