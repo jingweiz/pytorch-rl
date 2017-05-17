@@ -3,7 +3,7 @@ from __future__ import division
 
 import logging
 import numpy as np
-import cv2
+from scipy.misc import imresize
 from collections import namedtuple
 
 def loggerConfig(log_file, verbose=2):
@@ -32,8 +32,8 @@ AugmentedExperience = namedtuple('AugmentedExperience', 'state0, action, reward,
 
 def preprocessAtari(frame):
     frame = frame[34:34 + 160, :160]
-    frame = cv2.resize(frame, (80, 80))
-    frame = cv2.resize(frame, (42, 42))
+    frame = imresize(frame, (80, 80))
+    frame = imresize(frame, (42, 42))
     frame = frame.mean(2)
     frame = frame.astype(np.float32)
     frame*= (1. / 255.)
@@ -54,8 +54,7 @@ def rgb2y(rgb):
     return y_image
 
 def scale(image, hei_image, wid_image):
-    return cv2.resize(image, (wid_image, hei_image), # better change hei and wid
-                      interpolation=cv2.INTER_LINEAR)
+    return imresize(image, (hei_image, wid_image))
 
 def one_hot(n_classes, labels):
     one_hot_labels = np.zeros(labels.shape + (n_classes,))
