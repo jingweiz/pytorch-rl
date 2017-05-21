@@ -27,11 +27,11 @@ class Params(object):   # NOTE: shared across all modules
         self.verbose     = 0            # 0(warning) | 1(info) | 2(debug)
 
         # training signature
-        self.machine     = "waifa"       # "machine_id"
-        self.timestamp   = "0000"   # "yymmdd##"
+        self.machine     = "alienware"  # "machine_id"
+        self.timestamp   = "17052100"   # "yymmdd##"
         # training configuration
-        self.mode        = 2            # 1(train) | 2(test model_file)
-        self.config      = 6
+        self.mode        = 1            # 1(train) | 2(test model_file)
+        self.config      = 5
 
         self.seed        = 123
         self.render      = False        # whether render the window from the original envs or not

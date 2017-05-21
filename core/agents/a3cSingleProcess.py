@@ -12,9 +12,6 @@ import torch.nn.functional as F
 
 from utils.helpers import Experience, AugmentedExperience, one_hot
 
-# NOTE global variable pi
-pi_vb = Variable(torch.FloatTensor([math.pi]))
-
 class A3CSingleProcess(mp.Process):
     def __init__(self, master, process_id=0):
         super(A3CSingleProcess, self).__init__(name = "Process-%d" % process_id)
@@ -39,6 +36,10 @@ class A3CSingleProcess(mp.Process):
             self._reset_lstm_hidden_vb_episode() # clear up hidden state
             self._reset_lstm_hidden_vb_rollout() # detach the previous variable from the computation graph
 
+        # NOTE global variable pi
+        if self.master.enable_lstm:
+            self.pi_vb = Variable(torch.Tensor([math.pi]).type(self.dtype))
+
         self.master.logger.warning("Registered A3C-SingleProcess-Agent #" + str(self.process_id) + " w/ Env (seed:" + str(self.env.seed) + ").")
 
     def _reset_experience(self):    # for getting one set of observation from env for every action taken
@@ -58,7 +59,7 @@ class A3CSingleProcess(mp.Process):
         else:
             self.lstm_hidden_vb = (Variable(torch.zeros(1, self.master.hidden_dim).type(self.master.dtype)),
                                Variable(torch.zeros(1, self.master.hidden_dim).type(self.master.dtype)))
-    
+
     # NOTE: to be called at the beginning of each rollout, detach the previous variable from the graph
     def _reset_lstm_hidden_vb_rollout(self):
         self.lstm_hidden_vb = (Variable(self.lstm_hidden_vb[0].data),
@@ -95,18 +96,18 @@ class A3CSingleProcess(mp.Process):
                 p_vb, sig_vb, v_vb, self.lstm_hidden_vb = self.model(state_vb, self.lstm_hidden_vb)
             else:
                 p_vb, sig_vb, v_vb = self.model(state_vb)
-            
+
             if self.training:
                 _eps = torch.randn(p_vb.size())
                 action = (p_vb + sig_vb.sqrt()*Variable(_eps)).data.numpy()
             else:
                 action = p_vb.data.numpy()
-            
+
             return action, p_vb, sig_vb, v_vb
 
     def _normal(self, x, mu, sigma_sq):
         a = (-1*(x-mu).pow(2)/(2*sigma_sq)).exp()
-        b = 1/(2*sigma_sq*pi_vb.expand_as(sigma_sq)).sqrt()
+        b = 1/(2*sigma_sq*self.pi_vb.expand_as(sigma_sq)).sqrt()
         return (a*b).log()
 
     def run(self):
@@ -215,7 +216,7 @@ class A3CLearner(A3CSingleProcess):
             gae_ts   = self.master.gamma * gae_ts * self.master.tau + tderr_ts
             if self.master.enable_continuous:
                 _log_prob = self._normal(action_batch_vb[i], policy_vb[i], sigma_vb[i])
-                _entropy = -0.5*((sigma_vb[i]+2*pi_vb.expand_as(sigma_vb[i])).log()+1)
+                _entropy = -0.5*((sigma_vb[i]+2*self.pi_vb.expand_as(sigma_vb[i])).log()+1)
                 policy_loss_vb = policy_loss_vb - (_log_prob * Variable(gae_ts).expand_as(_log_prob)).sum() - 0.01 * _entropy.sum()
             else:
                 policy_loss_vb = policy_loss_vb - policy_log_vb[i] * Variable(gae_ts) - 0.01 * entropy_vb[i]
@@ -375,10 +376,10 @@ class A3CEvaluator(A3CSingleProcess):
         #                        Variable(torch.zeros(1, 1, self.master.hidden_dim).type(self.master.dtype)))
         if self.master.enable_continuous:
             self.lstm_hidden_vb = (Variable(torch.zeros(2, self.master.hidden_dim).type(self.master.dtype), volatile=True),
-                               Variable(torch.zeros(2, self.master.hidden_dim).type(self.master.dtype), volatile=True))
+                                   Variable(torch.zeros(2, self.master.hidden_dim).type(self.master.dtype), volatile=True))
         else:
             self.lstm_hidden_vb = (Variable(torch.zeros(1, self.master.hidden_dim).type(self.master.dtype), volatile=True),
-                               Variable(torch.zeros(1, self.master.hidden_dim).type(self.master.dtype), volatile=True))
+                                   Variable(torch.zeros(1, self.master.hidden_dim).type(self.master.dtype), volatile=True))
 
     def _eval_model(self):
         self.last_eval = time.time()
@@ -446,7 +447,7 @@ class A3CEvaluator(A3CSingleProcess):
                 # This episode is finished, report and reset
                 # NOTE make no sense for continuous
                 if self.master.enable_continuous:
-                    eval_entropy_log.append([-0.5*((sig_vb+2*pi_vb.expand_as(sig_vb)).log()+1).data.numpy()])
+                    eval_entropy_log.append([-0.5*((sig_vb+2*self.pi_vb.expand_as(sig_vb)).log()+1).data.numpy()])
                 else:
                     eval_entropy_log.append([np.mean((-torch.log(p_vb.data.squeeze()) * p_vb.data.squeeze()).numpy())])
                 eval_v_log.append([v_vb.data.numpy()])
