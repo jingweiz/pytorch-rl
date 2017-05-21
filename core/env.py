@@ -94,8 +94,11 @@ class GymEnv(Env):  # low dimensional observations
         self.logger.warning("State  Space: %s", self.state_shape)
 
         # continuous space
-        self.enable_continuous = args.enable_continuous
-    
+        if args.agent_type == "a3c":
+            self.enable_continuous = args.enable_continuous
+        else:
+            self.enable_continuous = False
+
     def _preprocessState(self, state):    # NOTE: here no preprecessing is needed
         return state
 
