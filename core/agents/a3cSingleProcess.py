@@ -3,12 +3,17 @@ from __future__ import division
 import numpy as np
 import random
 import time
+import math
 
 import torch
 import torch.multiprocessing as mp
 from torch.autograd import Variable
+import torch.nn.functional as F
 
 from utils.helpers import Experience, AugmentedExperience, one_hot
+
+# NOTE global variable pi
+pi_vb = Variable(torch.FloatTensor([math.pi]))
 
 class A3CSingleProcess(mp.Process):
     def __init__(self, master, process_id=0):
@@ -47,9 +52,13 @@ class A3CSingleProcess(mp.Process):
     def _reset_lstm_hidden_vb_episode(self): # seq_len, batch_size, hidden_dim
         # self.lstm_hidden_vb = (Variable(torch.zeros(1, 1, self.master.hidden_dim).type(self.master.dtype)),
         #                        Variable(torch.zeros(1, 1, self.master.hidden_dim).type(self.master.dtype)))
-        self.lstm_hidden_vb = (Variable(torch.zeros(1, self.master.hidden_dim).type(self.master.dtype)),
+        if self.master.enable_continuous:
+            self.lstm_hidden_vb = (Variable(torch.zeros(2, self.master.hidden_dim).type(self.master.dtype)),
+                               Variable(torch.zeros(2, self.master.hidden_dim).type(self.master.dtype)))
+        else:
+            self.lstm_hidden_vb = (Variable(torch.zeros(1, self.master.hidden_dim).type(self.master.dtype)),
                                Variable(torch.zeros(1, self.master.hidden_dim).type(self.master.dtype)))
-
+    
     # NOTE: to be called at the beginning of each rollout, detach the previous variable from the graph
     def _reset_lstm_hidden_vb_rollout(self):
         self.lstm_hidden_vb = (Variable(self.lstm_hidden_vb[0].data),
@@ -58,21 +67,47 @@ class A3CSingleProcess(mp.Process):
     def _sync_local_with_global(self):  # grab the current global model for local learning/evaluating
         self.model.load_state_dict(self.master.model.state_dict())
 
-    def _preprocessState(self, state):
-        state_ts = torch.from_numpy(state).unsqueeze(0).type(self.master.dtype)
-        return state_ts
+    def _preprocessState(self, state, volatile_=False):
+        if isinstance(state, list):
+            state_1_ts = Variable(torch.from_numpy(state[0]).unsqueeze(0).type(self.master.dtype), volatile=volatile_)
+            state_2_ts = Variable(torch.from_numpy(state[1]).unsqueeze(0).type(self.master.dtype), volatile=volatile_)
+            return [state_1_ts, state_2_ts]
+        else:
+            state_ts = Variable(torch.from_numpy(state).unsqueeze(0).type(self.master.dtype), volatile=volatile_)
+            return state_ts
 
     def _forward(self, state_vb):
-        if self.master.enable_lstm:
-            p_vb, v_vb, self.lstm_hidden_vb = self.model(state_vb, self.lstm_hidden_vb)
-        else:
-            p_vb, v_vb = self.model(state_vb)
+        if not self.master.enable_continuous:
+            if self.master.enable_lstm:
+                p_vb, v_vb, self.lstm_hidden_vb = self.model(state_vb, self.lstm_hidden_vb)
+            else:
+                p_vb, v_vb = self.model(state_vb)
 
-        if self.training:
-            action = p_vb.multinomial().data[0][0]
+            if self.training:
+                action = p_vb.multinomial().data[0][0]
+            else:
+                action = p_vb.max(1)[1].data.squeeze().numpy()[0]
+            return action, p_vb, v_vb
+
+        # NOTE continous control p_vb here is the mu_vb of continous action dist
         else:
-            action = p_vb.max(1)[1].data.squeeze().numpy()[0]
-        return action, p_vb, v_vb
+            if self.master.enable_lstm:
+                p_vb, sig_vb, v_vb, self.lstm_hidden_vb = self.model(state_vb, self.lstm_hidden_vb)
+            else:
+                p_vb, sig_vb, v_vb = self.model(state_vb)
+            
+            if self.training:
+                _eps = torch.randn(p_vb.size())
+                action = (p_vb + sig_vb.sqrt()*Variable(_eps)).data.numpy()
+            else:
+                action = p_vb.data.numpy()
+            
+            return action, p_vb, sig_vb, v_vb
+
+    def _normal(self, x, mu, sigma_sq):
+        a = (-1*(x-mu).pow(2)/(2*sigma_sq)).exp()
+        b = 1/(2*sigma_sq*pi_vb.expand_as(sigma_sq)).sqrt()
+        return (a*b).log()
 
     def run(self):
         raise NotImplementedError("not implemented in base calss")
@@ -114,6 +149,7 @@ class A3CLearner(A3CSingleProcess):
                                            state1 = [],
                                            terminal1 = [],
                                            policy_vb = [],
+                                           sigmoid_vb = [],
                                            value0_vb = [])
 
     # NOTE: since no backward passes has ever been run on the global model
@@ -130,11 +166,18 @@ class A3CLearner(A3CSingleProcess):
         if self.rollout.terminal1[-1]:  # for terminal sT
             valueT_vb = Variable(torch.zeros(1, 1))
         else:                           # for non-terminal sT
-            sT_ts = torch.from_numpy(self.rollout.state1[-1]).unsqueeze(0).type(self.master.dtype)  # bootstrap from last state
-            if self.master.enable_lstm:
-                _, valueT_vb, _ = self.model(Variable(sT_ts, volatile=True), self.lstm_hidden_vb)   # NOTE: only doing inference here
+            #sT_ts = torch.from_numpy(self.rollout.state1[-1]).unsqueeze(0).type(self.master.dtype)  # bootstrap from last state
+            sT_ts = self._preprocessState(self.rollout.state1[-1])
+            if self.master.enable_continuous:
+                if self.master.enable_lstm:
+                    _, _, valueT_vb, _ = self.model(sT_ts, self.lstm_hidden_vb)   # NOTE: only doing inference here
+                else:
+                    _, _, valueT_vb = self.model(sT_ts)
             else:
-                _, valueT_vb = self.model(Variable(sT_ts, volatile=True))                           # NOTE: only doing inference here
+                if self.master.enable_lstm:
+                    _, valueT_vb, _ = self.model(sT_ts, self.lstm_hidden_vb)   # NOTE: only doing inference here
+                else:
+                    _, valueT_vb = self.model(sT_ts)                           # NOTE: only doing inference here
             valueT_vb = Variable(valueT_vb.data)
 
         return valueT_vb
@@ -142,13 +185,19 @@ class A3CLearner(A3CSingleProcess):
     def _backward(self):
         # preparation
         rollout_steps = len(self.rollout.reward)
-        action_batch_vb = Variable(torch.from_numpy(np.array(self.rollout.action)).long())
-        if self.master.use_cuda:
-            action_batch_vb = action_batch_vb.cuda()
-        policy_vb     = self.rollout.policy_vb
-        policy_log_vb = [torch.log(policy_vb[i]) for i in range(rollout_steps)]
-        entropy_vb    = [- (policy_log_vb[i] * policy_vb[i]).sum(1) for i in range(rollout_steps)]
-        policy_log_vb = [policy_log_vb[i].gather(1, action_batch_vb[i].unsqueeze(0)) for i in range(rollout_steps) ]
+        policy_vb = self.rollout.policy_vb
+        if self.master.enable_continuous:
+            action_batch_vb = Variable(torch.from_numpy(np.array(self.rollout.action)))
+            if self.master.use_cuda:
+                action_batch_vb = action_batch_vb.cuda()
+            sigma_vb = self.rollout.sigmoid_vb
+        else:
+            action_batch_vb = Variable(torch.from_numpy(np.array(self.rollout.action)).long())
+            if self.master.use_cuda:
+                action_batch_vb = action_batch_vb.cuda()
+            policy_log_vb = [torch.log(policy_vb[i]) for i in range(rollout_steps)]
+            entropy_vb    = [- (policy_log_vb[i] * policy_vb[i]).sum(1) for i in range(rollout_steps)]
+            policy_log_vb = [policy_log_vb[i].gather(1, action_batch_vb[i].unsqueeze(0)) for i in range(rollout_steps) ]
         valueT_vb     = self._get_valueT_vb()
         self.rollout.value0_vb.append(Variable(valueT_vb.data)) # NOTE: only this last entry is Volatile, all others are still in the graph
         gae_ts        = torch.zeros(1, 1)
@@ -164,8 +213,12 @@ class A3CLearner(A3CSingleProcess):
             # Generalized Advantage Estimation
             tderr_ts = self.rollout.reward[i] + self.master.gamma * self.rollout.value0_vb[i + 1].data - self.rollout.value0_vb[i].data
             gae_ts   = self.master.gamma * gae_ts * self.master.tau + tderr_ts
-
-            policy_loss_vb = policy_loss_vb - policy_log_vb[i] * Variable(gae_ts) - 0.01 * entropy_vb[i]
+            if self.master.enable_continuous:
+                _log_prob = self._normal(action_batch_vb[i], policy_vb[i], sigma_vb[i])
+                _entropy = -0.5*((sigma_vb[i]+2*pi_vb.expand_as(sigma_vb[i])).log()+1)
+                policy_loss_vb = policy_loss_vb - (_log_prob * Variable(gae_ts).expand_as(_log_prob)).sum() - 0.01 * _entropy.sum()
+            else:
+                policy_loss_vb = policy_loss_vb - policy_log_vb[i] * Variable(gae_ts) - 0.01 * entropy_vb[i]
 
         loss_vb = policy_loss_vb + 0.5 * value_loss_vb
         loss_vb.backward()
@@ -196,7 +249,11 @@ class A3CLearner(A3CSingleProcess):
             # NOTE: here first store the last frame: experience.state1 as rollout.state0
             self.rollout.state0.append(self.experience.state1)
             # then get the action to take from rollout.state0 (experience.state1)
-            action, p_vb, v_vb = self._forward(Variable(self._preprocessState(self.experience.state1)))
+            if self.master.enable_continuous:
+                action, p_vb, sig_vb, v_vb = self._forward(self._preprocessState(self.experience.state1))
+                self.rollout.sigmoid_vb.append(sig_vb)
+            else:
+                action, p_vb, v_vb = self._forward(self._preprocessState(self.experience.state1))
             # then execute action in env to get a new experience.state1 -> rollout.state1
             self.experience = self.env.step(action)
             # push experience into rollout
@@ -314,8 +371,13 @@ class A3CEvaluator(A3CSingleProcess):
 
     # NOTE: to be called at the beginning of each new episode, clear up the hidden state
     def _reset_lstm_hidden_vb_episode(self): # seq_len, batch_size, hidden_dim
-        # NOTE: only doing inference here
-        self.lstm_hidden_vb = (Variable(torch.zeros(1, self.master.hidden_dim).type(self.master.dtype), volatile=True),
+        # self.lstm_hidden_vb = (Variable(torch.zeros(1, 1, self.master.hidden_dim).type(self.master.dtype)),
+        #                        Variable(torch.zeros(1, 1, self.master.hidden_dim).type(self.master.dtype)))
+        if self.master.enable_continuous:
+            self.lstm_hidden_vb = (Variable(torch.zeros(2, self.master.hidden_dim).type(self.master.dtype), volatile=True),
+                               Variable(torch.zeros(2, self.master.hidden_dim).type(self.master.dtype), volatile=True))
+        else:
+            self.lstm_hidden_vb = (Variable(torch.zeros(1, self.master.hidden_dim).type(self.master.dtype), volatile=True),
                                Variable(torch.zeros(1, self.master.hidden_dim).type(self.master.dtype), volatile=True))
 
     def _eval_model(self):
@@ -359,7 +421,10 @@ class A3CEvaluator(A3CSingleProcess):
                 # NOTE: not necessary here in evaluation but we do it anyways
                 self._reset_lstm_hidden_vb_rollout()
             # Run a single step
-            eval_action, p_vb, v_vb = self._forward(Variable(self._preprocessState(self.experience.state1), volatile=True))
+            if self.master.enable_continuous:
+                eval_action, p_vb, sig_vb, v_vb = self._forward(self._preprocessState(self.experience.state1, volatile_=True))
+            else:
+                eval_action, p_vb, v_vb = self._forward(self._preprocessState(self.experience.state1, volatile_=True))
             self.experience = self.env.step(eval_action)
             if not self.training:
                 if self.master.visualize: self.env.visual()
@@ -379,7 +444,11 @@ class A3CEvaluator(A3CSingleProcess):
                     eval_nepisodes_solved += 1
 
                 # This episode is finished, report and reset
-                eval_entropy_log.append([np.mean((-torch.log(p_vb.data.squeeze()) * p_vb.data.squeeze()).numpy())])
+                # NOTE make no sense for continuous
+                if self.master.enable_continuous:
+                    eval_entropy_log.append([-0.5*((sig_vb+2*pi_vb.expand_as(sig_vb)).log()+1).data.numpy()])
+                else:
+                    eval_entropy_log.append([np.mean((-torch.log(p_vb.data.squeeze()) * p_vb.data.squeeze()).numpy())])
                 eval_v_log.append([v_vb.data.numpy()])
                 eval_episode_steps_log.append([eval_episode_steps])
                 eval_episode_reward_log.append([eval_episode_reward])
@@ -509,7 +578,10 @@ class A3CTester(A3CSingleProcess):
                 # NOTE: not necessary here in testing but we do it anyways
                 self._reset_lstm_hidden_vb_rollout()
             # Run a single step
-            test_action, p_vb, v_vb = self._forward(Variable(self._preprocessState(self.experience.state1), volatile=True))
+            if self.master.enable_continuous:
+                test_action, p_vb, sig_vb, v_vb = self._forward(self._preprocessState(self.experience.state1, volatile_=True))
+            else:
+                test_action, p_vb, v_vb = self._forward(self._preprocessState(self.experience.state1, volatile_=True))
             self.experience = self.env.step(test_action)
             if not self.training:
                 if self.master.visualize: self.env.visual()

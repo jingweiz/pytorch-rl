@@ -18,7 +18,8 @@ CONFIGS = [
 [ "dqn",      "atari-ram", "Pong-ram-v0",              "mlp",      "sequential"],  # 2
 [ "dqn",      "atari",     "PongDeterministic-v3",     "cnn",      "sequential"],  # 3
 [ "dqn",      "atari",     "BreakoutDeterministic-v3", "cnn",      "sequential"],  # 4
-[ "a3c",      "atari",     "PongDeterministic-v3",     "a3c-cnn",  "none"      ]   # 5
+[ "a3c",      "atari",     "PongDeterministic-v3",     "a3c-cnn",  "none"      ],  # 5
+[ "a3c",      "gym",       "InvertedPendulum-v1",      "a3c-mjc",  "none"      ]  # 6
 ]
 
 class Params(object):   # NOTE: shared across all modules
@@ -26,11 +27,11 @@ class Params(object):   # NOTE: shared across all modules
         self.verbose     = 0            # 0(warning) | 1(info) | 2(debug)
 
         # training signature
-        self.machine     = "daim"       # "machine_id"
-        self.timestamp   = "17040900"   # "yymmdd##"
+        self.machine     = "waifa"       # "machine_id"
+        self.timestamp   = "0000"   # "yymmdd##"
         # training configuration
-        self.mode        = 1            # 1(train) | 2(test model_file)
-        self.config      = 1
+        self.mode        = 2            # 1(train) | 2(test model_file)
+        self.config      = 6
 
         self.seed        = 123
         self.render      = False        # whether render the window from the original envs or not
@@ -55,10 +56,11 @@ class Params(object):   # NOTE: shared across all modules
             self.dtype              = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
         elif self.agent_type == "a3c":
             self.enable_lstm        = True
-            self.num_processes      = 16
+            self.enable_continuous  = True
+            self.num_processes      = 8
 
             self.hist_len           = 1
-            self.hidden_dim         = 256
+            self.hidden_dim         = 128
 
             self.use_cuda           = False
             self.dtype              = torch.FloatTensor
@@ -107,6 +109,11 @@ class EnvParams(Params):    # settings for simulation environment
             self.preprocess_mode = 3    # 0(nothing) | 1(rgb2gray) | 2(rgb2y) | 3(crop&resize)
         elif self.env_type == "lab":
             pass
+        elif self.env_type == "gazebo":
+            self.hei_state = 60
+            self.wid_state = 80
+            self.preprocess_mode = 3  # 0(nothing) | 1(rgb2gray) | 2(rgb2y) | 3(crop&resize depth)
+            self.img_encoding_type = "passthrough"
         else:
             assert False, "env_type must be: gym | atari-ram | atari | lab"
 
@@ -194,7 +201,7 @@ class AgentParams(Params):  # hyperparameters for drl agents
             self.memory_interval     = 1
             self.train_interval      = 4
         elif self.agent_type == "a3c" and self.env_type == "atari-ram" or \
-             self.agent_type == "a3c" and self.env_type == "atari":
+             self.agent_type == "a3c" and (self.env_type == "atari" or self.env_type == "gym"):
             self.steps               = 20000000 # max #iterations
             self.early_stop          = None     # max #steps per episode
             self.gamma               = 0.99
@@ -203,7 +210,7 @@ class AgentParams(Params):  # hyperparameters for drl agents
             self.eval_freq           = 60       # NOTE: here means every this many seconds
             self.eval_steps          = 3000
             self.prog_freq           = self.eval_freq
-            self.test_nepisodes      = 1
+            self.test_nepisodes      = 10
 
             self.rollout_steps       = 20       # max look-ahead steps in a single rollout
             self.tau                 = 1.

@@ -2,6 +2,8 @@ from __future__ import absolute_import
 from __future__ import division
 import numpy as np
 from copy import deepcopy
+from gym.spaces.box import Box
+import inspect
 
 from utils.helpers import Experience            # NOTE: here state0 is always "None"
 from utils.helpers import preprocessAtari, rgb2gray, rgb2y, scale
@@ -56,7 +58,10 @@ class Env(object):
 
     @property
     def action_dim(self):
-        return self.env.action_space.n
+        if isinstance(self.env.action_space, Box):
+            return self.env.action_space.shape[0]
+        else:
+            return self.env.action_space.n
 
     def render(self):       # render using the original gl window
         raise NotImplementedError("not implemented in base calss")
@@ -88,6 +93,9 @@ class GymEnv(Env):  # low dimensional observations
         # state space setup
         self.logger.warning("State  Space: %s", self.state_shape)
 
+        # continuous space
+        self.enable_continuous = args.enable_continuous
+    
     def _preprocessState(self, state):    # NOTE: here no preprecessing is needed
         return state
 
@@ -120,7 +128,10 @@ class GymEnv(Env):  # low dimensional observations
 
     def step(self, action_index):
         self.exp_action = action_index
-        self.exp_state1, self.exp_reward, self.exp_terminal1, _ = self.env.step(self.actions[self.exp_action])
+        if self.enable_continuous:
+            self.exp_state1, self.exp_reward, self.exp_terminal1, _ = self.env.step(self.exp_action)
+        else:
+            self.exp_state1, self.exp_reward, self.exp_terminal1, _ = self.env.step(self.actions[self.exp_action])
         return self._get_experience()
 
 class AtariRamEnv(Env):  # atari games w/ ram states as input
@@ -234,3 +245,4 @@ class LabEnv(Env):
         super(LabEnv, self).__init__(args, env_ind)
 
         assert self.env_type == "lab"
+
