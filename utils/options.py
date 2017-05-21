@@ -31,7 +31,7 @@ class Params(object):   # NOTE: shared across all modules
         self.timestamp   = "17052100"   # "yymmdd##"
         # training configuration
         self.mode        = 1            # 1(train) | 2(test model_file)
-        self.config      = 5
+        self.config      = 6
 
         self.seed        = 123
         self.render      = False        # whether render the window from the original envs or not
@@ -57,7 +57,7 @@ class Params(object):   # NOTE: shared across all modules
         elif self.agent_type == "a3c":
             self.enable_lstm        = True
             self.enable_continuous  = True
-            self.num_processes      = 8
+            self.num_processes      = 16
 
             self.hist_len           = 1
             self.hidden_dim         = 128

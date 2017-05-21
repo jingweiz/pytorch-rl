@@ -37,8 +37,8 @@ class A3CSingleProcess(mp.Process):
             self._reset_lstm_hidden_vb_rollout() # detach the previous variable from the computation graph
 
         # NOTE global variable pi
-        if self.master.enable_lstm:
-            self.pi_vb = Variable(torch.Tensor([math.pi]).type(self.dtype))
+        if self.master.enable_continuous:
+            self.pi_vb = Variable(torch.Tensor([math.pi]).type(self.master.dtype))
 
         self.master.logger.warning("Registered A3C-SingleProcess-Agent #" + str(self.process_id) + " w/ Env (seed:" + str(self.env.seed) + ").")
 
