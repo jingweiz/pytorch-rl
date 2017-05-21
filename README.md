@@ -72,7 +72,7 @@ This repo currently contains the following agents:
 - Deep Q Learning (DQN) [[1]](http://arxiv.org/abs/1312.5602), [[2]](http://home.uchicago.edu/~arij/journalclub/papers/2015_Mnih_et_al.pdf)
 - Double DQN [[3]](http://arxiv.org/abs/1509.06461)
 - Dueling network DQN (Dueling DQN) [[4]](https://arxiv.org/abs/1511.06581)
-- Asynchronous Advantage Actor-Critic (A3C) [[5]](https://arxiv.org/abs/1602.01783), [[6]](https://arxiv.org/abs/1506.02438)
+- Asynchronous Advantage Actor-Critic (A3C) (w/ both discrete/continuous action space support) [[5]](https://arxiv.org/abs/1602.01783), [[6]](https://arxiv.org/abs/1506.02438)
 
 Work in progress:
 - Deep Deterministic Policy Gradient (DDPG) [[7]](http://arxiv.org/abs/1509.02971)
@@ -103,6 +103,7 @@ NOTE: we follow the exact code structure as [pytorch-dnc](https://github.com/jin
 - [PyTorch](http://pytorch.org/)
 - [Visdom](https://github.com/facebookresearch/visdom)
 - [OpenAI Gym](https://github.com/openai/gym)
+- [mujoco-py (Optional: for training continuous version of a3c)](https://github.com/openai/mujoco-py)
 *******
 
 
