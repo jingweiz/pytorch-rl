@@ -54,7 +54,8 @@ def rgb2y(rgb):
     return y_image
 
 def scale(image, hei_image, wid_image):
-    return cv2.resize(image, (wid_image, hei_image))
+    return cv2.resize(image, (wid_image, hei_image),
+                      interpolation=cv2.INTER_LINEAR)
 
 def one_hot(n_classes, labels):
     one_hot_labels = np.zeros(labels.shape + (n_classes,))
