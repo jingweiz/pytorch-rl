@@ -67,14 +67,14 @@ class A3CSingleProcess(mp.Process):
     def _sync_local_with_global(self):  # grab the current global model for local learning/evaluating
         self.model.load_state_dict(self.master.model.state_dict())
 
-    def _preprocessState(self, state):
+    def _preprocessState(self, state, is_valotile=False):
         if isinstance(state, list):
-            state_1_ts = torch.from_numpy(state[0]).unsqueeze(0).type(self.master.dtype)
-            state_2_ts = torch.from_numpy(state[1]).unsqueeze(0).type(self.master.dtype)
-            return [state_1_ts, state_2_ts]
+            state_vb = []
+            for i in range(len(state)):
+                state_vb.append(Variable(torch.from_numpy(state[i]).unsqueeze(0).type(self.master.dtype), volatile=is_valotile))
         else:
-            state_ts = torch.from_numpy(state).unsqueeze(0).type(self.master.dtype)
-            return state_ts
+            state_vb = Variable(torch.from_numpy(state).unsqueeze(0).type(self.master.dtype), volatile=is_valotile)
+        return state_vb
 
     def _forward(self, state_vb):
         if not self.master.enable_continuous:
@@ -166,17 +166,17 @@ class A3CLearner(A3CSingleProcess):
         if self.rollout.terminal1[-1]:  # for terminal sT
             valueT_vb = Variable(torch.zeros(1, 1))
         else:                           # for non-terminal sT
-            sT_ts = self._preprocessState(self.rollout.state1[-1])                                      # bootstrap from last state
+            sT_vb = self._preprocessState(self.rollout.state1[-1], True)        # bootstrap from last state
             if self.master.enable_continuous:
                 if self.master.enable_lstm:
-                    _, _, valueT_vb, _ = self.model(Variable(sT_ts, volatile=True), self.lstm_hidden_vb)# NOTE: only doing inference here
+                    _, _, valueT_vb, _ = self.model(sT_vb, self.lstm_hidden_vb) # NOTE: only doing inference here
                 else:
-                    _, _, valueT_vb = self.model(Variable(sT_ts, volatile=True))                        # NOTE: only doing inference here
+                    _, _, valueT_vb = self.model(sT_vb)                         # NOTE: only doing inference here
             else:
                 if self.master.enable_lstm:
-                    _, valueT_vb, _ = self.model(Variable(sT_ts, volatile=True), self.lstm_hidden_vb)   # NOTE: only doing inference here
+                    _, valueT_vb, _ = self.model(sT_vb, self.lstm_hidden_vb)    # NOTE: only doing inference here
                 else:
-                    _, valueT_vb = self.model(Variable(sT_ts, volatile=True))                           # NOTE: only doing inference here
+                    _, valueT_vb = self.model(sT_vb)                            # NOTE: only doing inference here
             valueT_vb = Variable(valueT_vb.data)
 
         return valueT_vb
@@ -248,10 +248,10 @@ class A3CLearner(A3CSingleProcess):
             self.rollout.state0.append(self.experience.state1)
             # then get the action to take from rollout.state0 (experience.state1)
             if self.master.enable_continuous:
-                action, p_vb, sig_vb, v_vb = self._forward(Variable(self._preprocessState(self.experience.state1)))
+                action, p_vb, sig_vb, v_vb = self._forward(self._preprocessState(self.experience.state1))
                 self.rollout.sigmoid_vb.append(sig_vb)
             else:
-                action, p_vb, v_vb = self._forward(Variable(self._preprocessState(self.experience.state1)))
+                action, p_vb, v_vb = self._forward(self._preprocessState(self.experience.state1))
             # then execute action in env to get a new experience.state1 -> rollout.state1
             self.experience = self.env.step(action)
             # push experience into rollout
@@ -413,9 +413,9 @@ class A3CEvaluator(A3CSingleProcess):
                 self._reset_lstm_hidden_vb_rollout()
             # Run a single step
             if self.master.enable_continuous:
-                eval_action, p_vb, sig_vb, v_vb = self._forward(Variable(self._preprocessState(self.experience.state1), volatile=True))
+                eval_action, p_vb, sig_vb, v_vb = self._forward(self._preprocessState(self.experience.state1, True))
             else:
-                eval_action, p_vb, v_vb = self._forward(Variable(self._preprocessState(self.experience.state1), volatile=True))
+                eval_action, p_vb, v_vb = self._forward(self._preprocessState(self.experience.state1, True))
             self.experience = self.env.step(eval_action)
             if not self.training:
                 if self.master.visualize: self.env.visual()
@@ -570,9 +570,9 @@ class A3CTester(A3CSingleProcess):
                 self._reset_lstm_hidden_vb_rollout()
             # Run a single step
             if self.master.enable_continuous:
-                test_action, p_vb, sig_vb, v_vb = self._forward(Variable(self._preprocessState(self.experience.state1), volatile=True))
+                test_action, p_vb, sig_vb, v_vb = self._forward(self._preprocessState(self.experience.state1, True))
             else:
-                test_action, p_vb, v_vb = self._forward(Variable(self._preprocessState(self.experience.state1), volatile=True))
+                test_action, p_vb, v_vb = self._forward(self._preprocessState(self.experience.state1, True))
             self.experience = self.env.step(test_action)
             if not self.training:
                 if self.master.visualize: self.env.visual()
