@@ -244,8 +244,7 @@ class A3CLearner(A3CSingleProcess):
         # 4. master not exceeding max train steps
         while (self.frame_step - t_start) < self.master.rollout_steps \
               and not self.experience.terminal1 \
-              and (self.master.early_stop is None or episode_steps < self.master.early_stop) \
-              and self.master.train_step.value < self.master.steps:
+              and (self.master.early_stop is None or episode_steps < self.master.early_stop):
             # NOTE: here first store the last frame: experience.state1 as rollout.state0
             self.rollout.state0.append(self.experience.state1)
             # then get the action to take from rollout.state0 (experience.state1)
@@ -268,6 +267,10 @@ class A3CLearner(A3CSingleProcess):
             episode_reward += self.experience.reward
             self.frame_step += 1
             self.master.frame_step.value += 1
+
+            # NOTE: we put this condition inside to make sure this current rollout won't be empty
+            if self.master.train_step.value < self.master.steps:
+                break
 
         return episode_steps, episode_reward
 
