@@ -32,8 +32,8 @@ AugmentedExperience = namedtuple('AugmentedExperience', 'state0, action, reward,
 
 def preprocessAtari(frame):
     frame = frame[34:34 + 160, :160]
-    frame = imresize(frame, (80, 80))
-    frame = imresize(frame, (42, 42))
+    frame = cv2.resize(frame, (80, 80))
+    frame = cv2.resize(frame, (42, 42))
     frame = frame.mean(2)
     frame = frame.astype(np.float32)
     frame*= (1. / 255.)
