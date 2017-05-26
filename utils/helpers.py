@@ -3,7 +3,7 @@ from __future__ import division
 
 import logging
 import numpy as np
-from scipy.misc import imresize
+import cv2
 from collections import namedtuple
 
 def loggerConfig(log_file, verbose=2):
@@ -54,7 +54,7 @@ def rgb2y(rgb):
     return y_image
 
 def scale(image, hei_image, wid_image):
-    return imresize(image, (hei_image, wid_image))
+    return cv2.resize(image, (wid_image, hei_image))
 
 def one_hot(n_classes, labels):
     one_hot_labels = np.zeros(labels.shape + (n_classes,))
