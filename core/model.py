@@ -307,7 +307,7 @@ class A3CMjcModel(Model):
         if self.enable_lstm:
             self.lstm  = nn.LSTMCell(self.hidden_dim, self.hidden_dim, 1)
             self.lstm_v  = nn.LSTMCell(self.hidden_dim, self.hidden_dim, 1)
-        
+
         # 1. policy output
         self.policy_5   = nn.Linear(self.hidden_dim, self.output_dims)
         self.policy_sig = nn.Linear(self.hidden_dim, self.output_dims)
@@ -335,6 +335,9 @@ class A3CMjcModel(Model):
         self.lstm.bias_ih.data.fill_(0)
         self.lstm.bias_hh.data.fill_(0)
 
+        self.lstm_v.bias_ih.data.fill_(0)
+        self.lstm_v.bias_hh.data.fill_(0)
+
     def forward(self, x, lstm_hidden_vb=None):
         p = x.view(x.size(0), self.input_dims[0] * self.input_dims[1])
         p = self.rl1(self.fc1(p))
@@ -349,8 +352,7 @@ class A3CMjcModel(Model):
         p_out = self.policy_5(p)
         sig = self.policy_sig(p)
         sig = self.softplus(sig)
-        
-        
+
         v = x.view(x.size(0), self.input_dims[0] * self.input_dims[1])
         v = self.rl1_v(self.fc1_v(v))
         v = self.rl2_v(self.fc2_v(v))
@@ -358,9 +360,9 @@ class A3CMjcModel(Model):
         v = self.rl4_v(self.fc4_v(v))
         v = v.view(-1, self.hidden_dim)
         if self.enable_lstm:
-            v, c_v = self.lstm(v, (v_, c_v))
+            v, c_v = self.lstm_v(v, (v_, c_v))
         v_out = self.value_5(v)
-        
+
         if self.enable_lstm:
             return p_out, sig, v_out, (torch.cat((p,v),0), torch.cat((c_p, c_v),0))
         else:

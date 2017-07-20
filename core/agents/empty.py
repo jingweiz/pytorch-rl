@@ -39,6 +39,8 @@ class EmptyAgent(Agent):
                 should_start_new = False
             action = random.randrange(self.action_dim)      # thus we only randomly sample actions here, since the model hasn't been updated at all till now
             self.experience = self.env.step(action)
+            if self.visualize: self.env.visual()
+            if self.render: self.env.render()
             if self.experience.terminal1 or self.early_stop and (episode_steps + 1) >= self.early_stop:
                 should_start_new = True
 
