@@ -1,5 +1,6 @@
 from __future__ import absolute_import
 from __future__ import division
+from __future__ import print_function
 
 from core.env import GymEnv, AtariRamEnv, AtariEnv, LabEnv
 EnvDict = {"gym":       GymEnv,                 # classic control games from openai w/ full-state-vector as input

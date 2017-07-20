@@ -1,5 +1,6 @@
 from __future__ import absolute_import
 from __future__ import division
+from __future__ import print_function
 import numpy as np
 from copy import deepcopy
 from gym.spaces.box import Box
@@ -248,4 +249,3 @@ class LabEnv(Env):
         super(LabEnv, self).__init__(args, env_ind)
 
         assert self.env_type == "lab"
-
