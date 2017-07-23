@@ -100,7 +100,7 @@ NOTE: we follow the exact code structure as [pytorch-dnc](https://github.com/jin
 
 ## Dependencies
 - Python 2.7
-- [PyTorch](http://pytorch.org/)
+- [PyTorch](http://pytorch.org/) 0.1.12
 - [Visdom](https://github.com/facebookresearch/visdom)
 - [OpenAI Gym](https://github.com/openai/gym)
 - [mujoco-py (Optional: for training continuous version of a3c)](https://github.com/openai/mujoco-py)
