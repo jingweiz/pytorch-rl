@@ -438,7 +438,7 @@ class A3CEvaluator(A3CSingleProcess):
                 # This episode is finished, report and reset
                 # NOTE make no sense for continuous
                 if self.master.enable_continuous:
-                    eval_entropy_log.append([-0.5*((sig_vb*2*self.pi_vb.expand_as(sig_vb)).log()+1).data.numpy()])
+                    eval_entropy_log.append([0.5*((sig_vb*2*self.pi_vb.expand_as(sig_vb)).log()+1).data.numpy()])
                 else:
                     eval_entropy_log.append([np.mean((-torch.log(p_vb.data.squeeze()) * p_vb.data.squeeze()).numpy())])
                 eval_v_log.append([v_vb.data.numpy()])
