@@ -1,4 +1,6 @@
 core/*.pyc
+core/envs/*.pyc
+core/models/*.pyc
 core/agents/*.pyc
 utils/*.pyc
 models/*

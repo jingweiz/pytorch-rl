@@ -75,8 +75,11 @@ This repo currently contains the following agents:
 - Asynchronous Advantage Actor-Critic (A3C) (w/ both discrete/continuous action space support) [[5]](https://arxiv.org/abs/1602.01783), [[6]](https://arxiv.org/abs/1506.02438)
 
 Work in progress:
-- Deep Deterministic Policy Gradient (DDPG) [[7]](http://arxiv.org/abs/1509.02971)
-- Continuous DQN (CDQN or NAF) [[8]](http://arxiv.org/abs/1603.00748)
+- Sample Efficient Actor-Critic with Experience Replay (ACER) [[7]](https://arxiv.org/abs/1611.01224), [[8]](https://arxiv.org/abs/1606.02647)
+
+Future Plans:
+- Deep Deterministic Policy Gradient (DDPG) [[9]](http://arxiv.org/abs/1509.02971), [[10]](http://proceedings.mlr.press/v32/silver14.pdf)
+- Continuous DQN (CDQN or NAF) [[11]](http://arxiv.org/abs/1603.00748)
 
 
 ## Code structure & Naming conventions:

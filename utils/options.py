@@ -13,14 +13,15 @@ from utils.helpers import loggerConfig
 from utils.sharedAdam import SharedAdam
 
 CONFIGS = [
-# agent_type, env_type,    game,                       model_type, memory_type
-[ "empty",    "gym",       "CartPole-v0",              "mlp",      "none"      ],  # 0
-[ "dqn",      "gym",       "CartPole-v0",              "mlp",      "sequential"],  # 1
-[ "dqn",      "atari-ram", "Pong-ram-v0",              "mlp",      "sequential"],  # 2
-[ "dqn",      "atari",     "PongDeterministic-v3",     "cnn",      "sequential"],  # 3
-[ "dqn",      "atari",     "BreakoutDeterministic-v3", "cnn",      "sequential"],  # 4
-[ "a3c",      "atari",     "PongDeterministic-v3",     "a3c-cnn",  "none"      ],  # 5
-[ "a3c",      "gym",       "InvertedPendulum-v1",      "a3c-mjc",  "none"      ]   # 6
+# agent_type, env_type,    game,                       model_type,     memory_type
+[ "empty",    "gym",       "CartPole-v0",              "empty",        "none"      ],  # 0
+[ "dqn",      "gym",       "CartPole-v0",              "dqn-mlp",      "sequential"],  # 1
+[ "dqn",      "atari-ram", "Pong-ram-v0",              "dqn-mlp",      "sequential"],  # 2
+[ "dqn",      "atari",     "PongDeterministic-v3",     "dqn-cnn",      "sequential"],  # 3
+[ "dqn",      "atari",     "BreakoutDeterministic-v3", "dqn-cnn",      "sequential"],  # 4
+[ "a3c",      "atari",     "PongDeterministic-v3",     "a3c-cnn-dis",  "none"      ],  # 5
+[ "a3c",      "gym",       "InvertedPendulum-v1",      "a3c-mlp-con",  "none"      ],  # 6
+[ "acer",     "gym",       "CartPole-v1",              "empty",        "none"      ]   # 7
 ]
 
 class Params(object):   # NOTE: shared across all modules
@@ -28,14 +29,14 @@ class Params(object):   # NOTE: shared across all modules
         self.verbose     = 0            # 0(warning) | 1(info) | 2(debug)
 
         # training signature
-        self.machine     = "alienware"  # "machine_id"
-        self.timestamp   = "17052100"   # "yymmdd##"
+        self.machine     = "aisdaim"    # "machine_id"
+        self.timestamp   = "17080100"   # "yymmdd##"
         # training configuration
         self.mode        = 1            # 1(train) | 2(test model_file)
-        self.config      = 5
+        self.config      = 7
 
         self.seed        = 123
-        self.render      = False        # whether render the window from the original envs or not
+        self.render      = True#False        # whether render the window from the original envs or not
         self.visualize   = True         # whether do online plotting and stuff or not
         self.save_best   = False        # save model w/ highest reward if True, otherwise always save the latest model
 
@@ -57,7 +58,20 @@ class Params(object):   # NOTE: shared across all modules
             self.dtype              = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
         elif self.agent_type == "a3c":
             self.enable_lstm        = True
-            if self.model_type == "a3c-mjc":    # NOTE: should be set to True when training Mujoco envs
+            if self.model_type == "a3c-mlp-con":    # NOTE: should be set to True when training Mujoco envs
+                self.enable_continuous  = True
+            else:
+                self.enable_continuous  = False
+            self.num_processes      = 8
+
+            self.hist_len           = 1
+            self.hidden_dim         = 128
+
+            self.use_cuda           = False
+            self.dtype              = torch.FloatTensor
+        elif self.agent_type == "acer":
+            self.enable_lstm        = True
+            if self.model_type == "acer-cnn-con":   # NOTE: should be set to True when training Mujoco envs
                 self.enable_continuous  = True
             else:
                 self.enable_continuous  = False
@@ -204,8 +218,20 @@ class AgentParams(Params):  # hyperparameters for drl agents
             self.action_repetition   = 4
             self.memory_interval     = 1
             self.train_interval      = 4
-        elif self.agent_type == "a3c" and self.env_type == "atari-ram" or \
-             self.agent_type == "a3c" and (self.env_type == "atari" or self.env_type == "gym"):
+        elif self.agent_type == "a3c":
+            self.steps               = 20000000 # max #iterations
+            self.early_stop          = None     # max #steps per episode
+            self.gamma               = 0.99
+            self.clip_grad           = 40.
+            self.lr                  = 0.0001
+            self.eval_freq           = 60       # NOTE: here means every this many seconds
+            self.eval_steps          = 3000
+            self.prog_freq           = self.eval_freq
+            self.test_nepisodes      = 10
+
+            self.rollout_steps       = 20       # max look-ahead steps in a single rollout
+            self.tau                 = 1.
+        elif self.agent_type == "acer":
             self.steps               = 20000000 # max #iterations
             self.early_stop          = None     # max #steps per episode
             self.gamma               = 0.99
