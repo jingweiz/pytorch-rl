@@ -1,7 +1,9 @@
 core/*.pyc
 core/envs/*.pyc
 core/models/*.pyc
+core/memories/*.pyc
 core/agents/*.pyc
+optims/*.pyc
 utils/*.pyc
 models/*
 logs/*

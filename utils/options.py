@@ -10,7 +10,8 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 from utils.helpers import loggerConfig
-from utils.sharedAdam import SharedAdam
+from optims.sharedAdam import SharedAdam
+from optims.sharedRMSprop import SharedRMSprop
 
 CONFIGS = [
 # agent_type, env_type,    game,                       model_type,     memory_type
@@ -21,7 +22,7 @@ CONFIGS = [
 [ "dqn",      "atari",     "BreakoutDeterministic-v3", "dqn-cnn",      "sequential"],  # 4
 [ "a3c",      "atari",     "PongDeterministic-v3",     "a3c-cnn-dis",  "none"      ],  # 5
 [ "a3c",      "gym",       "InvertedPendulum-v1",      "a3c-mlp-con",  "none"      ],  # 6
-[ "acer",     "gym",       "CartPole-v1",              "empty",        "none"      ]   # 7
+[ "acer",     "gym",       "CartPole-v1",              "acer-mlp-dis", "none"      ]   # 7
 ]
 
 class Params(object):   # NOTE: shared across all modules
@@ -58,7 +59,7 @@ class Params(object):   # NOTE: shared across all modules
             self.dtype              = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
         elif self.agent_type == "a3c":
             self.enable_lstm        = True
-            if self.model_type == "a3c-mlp-con":    # NOTE: should be set to True when training Mujoco envs
+            if "-con" in self.model_type:
                 self.enable_continuous  = True
             else:
                 self.enable_continuous  = False
@@ -71,14 +72,14 @@ class Params(object):   # NOTE: shared across all modules
             self.dtype              = torch.FloatTensor
         elif self.agent_type == "acer":
             self.enable_lstm        = True
-            if self.model_type == "acer-cnn-con":   # NOTE: should be set to True when training Mujoco envs
+            if "-con" in self.model_type:
                 self.enable_continuous  = True
             else:
                 self.enable_continuous  = False
             self.num_processes      = 8
 
             self.hist_len           = 1
-            self.hidden_dim         = 128
+            self.hidden_dim         = 32
 
             self.use_cuda           = False
             self.dtype              = torch.FloatTensor

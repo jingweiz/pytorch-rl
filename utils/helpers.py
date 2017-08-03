@@ -30,6 +30,8 @@ Experience          = namedtuple('Experience',          'state0, action, reward,
 # NOTE: also used for on-policy methods for collect experiences over a rollout of an episode
 # NOTE: policy_vb & value0_vb for storing output Variables along a rollout # NOTE: they should not be detached from the graph!
 AugmentedExperience = namedtuple('AugmentedExperience', 'state0, action, reward, state1, terminal1, policy_vb, sigmoid_vb, value0_vb')
+# NOTE: used for ACER
+ACERExperience      = namedtuple('ACERExperience',      'state0, action, reward, state1, terminal1, policy_vb')
 
 def preprocessAtari(frame):
     frame = frame[34:34 + 160, :160]

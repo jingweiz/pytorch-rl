@@ -16,18 +16,22 @@ from core.models.dqn_mlp import DQNMlpModel
 from core.models.dqn_cnn import DQNCnnModel
 from core.models.a3c_mlp_con import A3CMlpConModel
 from core.models.a3c_cnn_dis import A3CCnnDisModel
-from core.models.acer_cnn import ACERCnnModel
+from core.models.acer_mlp_dis import ACERMlpDisModel
 ModelDict = {"empty":        EmptyModel,        # contains nothing, only should be used w/ EmptyAgent
              "dqn-mlp":      DQNMlpModel,       # for dqn low-level    input
              "dqn-cnn":      DQNCnnModel,       # for dqn pixel-level  input
-             "a3c-mlp-con":  A3CMlpConModel,    # for a3c low-level    input (continuous)
-             "a3c-cnn-dis":  A3CCnnDisModel,    # for a3c pixel-level  input (discrete)
-             "acer-cnn":     ACERCnnModel,      # for acer pixel-level input
+             "a3c-mlp-con":  A3CMlpConModel,    # for a3c low-level    input (NOTE: continuous must end in "-con")
+             "a3c-cnn-dis":  A3CCnnDisModel,    # for a3c pixel-level  input (NOTE: discrete)
+             "acer-mlp-dis": ACERMlpDisModel,   # for acer pixel-level input (NOTE: discrete)
              "none":         None}
 
-from core.memory import SequentialMemory
-MemoryDict = {"sequential": SequentialMemory,   # off-policy
-              "none":       None}               #  on-policy
+from core.memories.sequential import SequentialMemory
+from core.memories.episode_parameter import EpisodeParameterMemory
+from core.memories.episodic import EpisodicMemory
+MemoryDict = {"sequential":        SequentialMemory,        # off-policy
+              "episode-parameter": EpisodeParameterMemory,  # not in use right now
+              "episodic":          EpisodicMemory,          # off-policy TODO: description is not entirely correct here
+              "none":              None}                    #  on-policy
 
 from core.agents.empty import EmptyAgent
 from core.agents.dqn   import DQNAgent
