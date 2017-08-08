@@ -131,4 +131,5 @@ You only need to modify some parameters in ```./utils/options.py``` to train a n
 * [transedward/pytorch-dqn](https://github.com/transedward/pytorch-dqn)
 * [ikostrikov/pytorch-a3c](https://github.com/ikostrikov/pytorch-a3c)
 * [onlytailei/A3C-PyTorch](https://github.com/onlytailei/A3C-PyTorch)
+* [Kaixhin/ACER](https://github.com/Kaixhin/ACER)
 * And a private implementation of A3C from [@stokasto](https://github.com/stokasto)
