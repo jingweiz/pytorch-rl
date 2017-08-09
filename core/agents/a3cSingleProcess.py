@@ -119,7 +119,7 @@ class A3CLearner(A3CSingleProcess):
         super(A3CLearner, self).__init__(master, process_id)
 
         # learning algorithm    # TODO: adjust learning to each process maybe ???
-        self.optimizer = self.master.optim(self.model.parameters(), lr = self.master.lr)
+        self.optimizer = self.master.optim(self.model.parameters(), lr = self.master.lr, weight_decay=self.master.weight_decay)
 
         self._reset_rollout()
 
@@ -215,10 +215,10 @@ class A3CLearner(A3CSingleProcess):
             gae_ts   = self.master.gamma * gae_ts * self.master.tau + tderr_ts
             if self.master.enable_continuous:
                 _log_prob = self._normal(action_batch_vb[i], policy_vb[i], sigma_vb[i])
-                _entropy = -0.5*((sigma_vb[i]+2*self.pi_vb.expand_as(sigma_vb[i])).log()+1)
-                policy_loss_vb = policy_loss_vb - (_log_prob * Variable(gae_ts).expand_as(_log_prob)).sum() - 0.01 * _entropy.sum()
+                _entropy = 0.5 * ((sigma_vb[i] * 2 * self.pi_vb.expand_as(sigma_vb[i])).log() + 1)
+                policy_loss_vb = policy_loss_vb - (_log_prob * Variable(gae_ts).expand_as(_log_prob)).sum() - self.master.beta * _entropy.sum()
             else:
-                policy_loss_vb = policy_loss_vb - policy_log_vb[i] * Variable(gae_ts) - 0.01 * entropy_vb[i]
+                policy_loss_vb = policy_loss_vb - policy_log_vb[i] * Variable(gae_ts) - self.master.beta * entropy_vb[i]
 
         loss_vb = policy_loss_vb + 0.5 * value_loss_vb
         loss_vb.backward()
@@ -438,7 +438,7 @@ class A3CEvaluator(A3CSingleProcess):
                 # This episode is finished, report and reset
                 # NOTE make no sense for continuous
                 if self.master.enable_continuous:
-                    eval_entropy_log.append([-0.5*((sig_vb+2*self.pi_vb.expand_as(sig_vb)).log()+1).data.numpy()])
+                    eval_entropy_log.append([0.5 * ((sig_vb * 2 * self.pi_vb.expand_as(sig_vb)).log() + 1).data.numpy()])
                 else:
                     eval_entropy_log.append([np.mean((-torch.log(p_vb.data.squeeze()) * p_vb.data.squeeze()).numpy())])
                 eval_v_log.append([v_vb.data.numpy()])

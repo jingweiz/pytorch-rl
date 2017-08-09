@@ -50,6 +50,7 @@ class Agent(object):
         self.gamma = args.gamma
         self.clip_grad = args.clip_grad
         self.lr = args.lr
+        self.weight_decay = args.weight_decay
         self.eval_freq = args.eval_freq
         self.eval_steps = args.eval_steps
         self.prog_freq = args.prog_freq
@@ -77,6 +78,7 @@ class Agent(object):
 
             self.rollout_steps = args.rollout_steps
             self.tau = args.tau
+            self.beta = args.beta
         elif args.agent_type == "acer":
             self.enable_lstm = args.enable_lstm
             self.enable_continuous = args.enable_continuous

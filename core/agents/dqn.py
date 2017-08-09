@@ -222,8 +222,8 @@ class DQNAgent(Agent):
         self.memory = self.memory_prototype(limit = self.memory_params.memory_size,
                                             window_length = self.memory_params.hist_len)
         self.eps = self.eps_start
-        # self.optimizer = self.optim(self.model.parameters(), lr=self.lr, alpha=0.95, eps=0.01)  # RMSprop
-        self.optimizer = self.optim(self.model.parameters(), lr=self.lr)    # Adam
+        # self.optimizer = self.optim(self.model.parameters(), lr=self.lr, alpha=0.95, eps=0.01, weight_decay=self.weight_decay)  # RMSprop
+        self.optimizer = self.optim(self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay)    # Adam
 
         self.logger.warning("<===================================> Training ...")
         self.training = True

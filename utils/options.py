@@ -180,6 +180,7 @@ class AgentParams(Params):  # hyperparameters for drl agents
             self.gamma               = 0.99
             self.clip_grad           = 1.#np.inf
             self.lr                  = 0.0001
+            self.weight_decay        = 0.
             self.eval_freq           = 2500     # NOTE: here means every this many steps
             self.eval_steps          = 1000
             self.prog_freq           = self.eval_freq
@@ -203,6 +204,7 @@ class AgentParams(Params):  # hyperparameters for drl agents
             self.gamma               = 0.99
             self.clip_grad           = 40.#np.inf
             self.lr                  = 0.00025
+            self.weight_decay        = 0.
             self.eval_freq           = 250000#12500    # NOTE: here means every this many steps
             self.eval_steps          = 125000#2500
             self.prog_freq           = 10000#self.eval_freq
@@ -225,6 +227,7 @@ class AgentParams(Params):  # hyperparameters for drl agents
             self.gamma               = 0.99
             self.clip_grad           = 40.
             self.lr                  = 0.0001
+            self.weight_decay        = 1e-4 if self.enable_continuous else 0.
             self.eval_freq           = 60       # NOTE: here means every this many seconds
             self.eval_steps          = 3000
             self.prog_freq           = self.eval_freq
@@ -232,12 +235,14 @@ class AgentParams(Params):  # hyperparameters for drl agents
 
             self.rollout_steps       = 20       # max look-ahead steps in a single rollout
             self.tau                 = 1.
+            self.beta                = 0.01     # coefficient for entropy penalty
         elif self.agent_type == "acer":
             self.steps               = 20000000 # max #iterations
             self.early_stop          = None     # max #steps per episode
             self.gamma               = 0.99
             self.clip_grad           = 40.
             self.lr                  = 0.0001
+            self.weight_decay        = 0.
             self.eval_freq           = 60       # NOTE: here means every this many seconds
             self.eval_steps          = 3000
             self.prog_freq           = self.eval_freq
@@ -251,6 +256,7 @@ class AgentParams(Params):  # hyperparameters for drl agents
             self.gamma               = 0.99
             self.clip_grad           = 1.#np.inf
             self.lr                  = 0.001
+            self.weight_decay        = 0.
             self.eval_freq           = 2500     # NOTE: here means every this many steps
             self.eval_steps          = 1000
             self.prog_freq           = self.eval_freq
