@@ -103,9 +103,9 @@ NOTE: we follow the exact code structure as [pytorch-dnc](https://github.com/jin
 
 ## Dependencies
 - Python 2.7
-- [PyTorch](http://pytorch.org/)
+- [PyTorch >=v0.2.0](http://pytorch.org/)
 - [Visdom](https://github.com/facebookresearch/visdom)
-- [OpenAI Gym](https://github.com/openai/gym)
+- [OpenAI Gym >=v0.9.0 (for lower versoins, just need to change into the available games, e.g. change PongDeterministic-v4 to PongDeterministic-v3)](https://github.com/openai/gym)
 - [mujoco-py (Optional: for training continuous version of a3c)](https://github.com/openai/mujoco-py)
 *******
 
@@ -123,6 +123,18 @@ You only need to modify some parameters in ```./utils/options.py``` to train a n
 
 * Run:
 > ```python main.py```
+*******
+
+
+## Bonus Scripts :)
+We also provide 2 additional scripts for quickly evaluating your results after training. (Dependecies: [lmj-plot](https://github.com/lmjohns3/py-plot))
+* ```plot.sh``` (e.g., plot from log file: ```logs/machine1_17080801.log```)
+> * ```./plot.sh machine1 17080801```
+> * the generated figures will be saved into ```figs/machine1_17080801/```
+* ```plot_compare.sh``` (e.g., compare log files: ```logs/machine1_17080801.log```,```logs/machine2_17080802.log```)
+> ```./plot.sh 00 machine1 17080801 machine2 17080802```
+> * the generated figures will be saved into ```figs/compare_00/```
+> * the color coding will be in the order of: ```red green blue magenta yellow cyan```
 *******
 
 

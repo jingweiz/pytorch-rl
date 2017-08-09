@@ -7,7 +7,8 @@ import torch
 
 def normalized_columns_initializer(weights, std=1.0):
     out = torch.randn(weights.size())
-    out *= std / torch.sqrt(out.pow(2).sum(1).expand_as(out))
+    # out *= std / torch.sqrt(out.pow(2).sum(1).expand_as(out))             # 0.1.12
+    out *= std / torch.sqrt(out.pow(2).sum(1, keepdim=True).expand_as(out)) # 0.2.0
     return out
 
 def init_weights(m):

@@ -18,11 +18,11 @@ CONFIGS = [
 [ "empty",    "gym",       "CartPole-v0",              "empty",        "none"      ],  # 0
 [ "dqn",      "gym",       "CartPole-v0",              "dqn-mlp",      "sequential"],  # 1
 [ "dqn",      "atari-ram", "Pong-ram-v0",              "dqn-mlp",      "sequential"],  # 2
-[ "dqn",      "atari",     "PongDeterministic-v3",     "dqn-cnn",      "sequential"],  # 3
-[ "dqn",      "atari",     "BreakoutDeterministic-v3", "dqn-cnn",      "sequential"],  # 4
-[ "a3c",      "atari",     "PongDeterministic-v3",     "a3c-cnn-dis",  "none"      ],  # 5
+[ "dqn",      "atari",     "PongDeterministic-v4",     "dqn-cnn",      "sequential"],  # 3
+[ "dqn",      "atari",     "BreakoutDeterministic-v4", "dqn-cnn",      "sequential"],  # 4
+[ "a3c",      "atari",     "PongDeterministic-v4",     "a3c-cnn-dis",  "none"      ],  # 5
 [ "a3c",      "gym",       "InvertedPendulum-v1",      "a3c-mlp-con",  "none"      ],  # 6
-[ "acer",     "gym",       "CartPole-v1",              "acer-mlp-dis", "none"      ]   # 7
+[ "acer",     "gym",       "CartPole-v1",              "acer-mlp-dis", "none"      ]   # 7  # NOTE: acer still under development, dont use this config
 ]
 
 class Params(object):   # NOTE: shared across all modules
@@ -30,14 +30,14 @@ class Params(object):   # NOTE: shared across all modules
         self.verbose     = 0            # 0(warning) | 1(info) | 2(debug)
 
         # training signature
-        self.machine     = "aisdaim"    # "machine_id"
-        self.timestamp   = "17080100"   # "yymmdd##"
+        self.machine     = "daim"    # "machine_id"
+        self.timestamp   = "17080900"   # "yymmdd##"
         # training configuration
         self.mode        = 1            # 1(train) | 2(test model_file)
-        self.config      = 7
+        self.config      = 5
 
         self.seed        = 123
-        self.render      = True#False        # whether render the window from the original envs or not
+        self.render      = False        # whether render the window from the original envs or not
         self.visualize   = True         # whether do online plotting and stuff or not
         self.save_best   = False        # save model w/ highest reward if True, otherwise always save the latest model
 

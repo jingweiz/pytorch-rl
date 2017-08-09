@@ -57,9 +57,11 @@ class DQNMlpModel(Model):
             a = x.gather(1, a_ind_vb.expand(x.size(0), self.output_dims))
             # now calculate Q(s, a)
             if self.dueling_type == "avg":      # Q(s,a)=V(s)+(A(s,a)-avg_a(A(s,a)))
-                x = v + (a - a.mean(1).expand(x.size(0), self.output_dims))
+                # x = v + (a - a.mean(1)).expand(x.size(0), self.output_dims)   # 0.1.12
+                x = v + (a - a.mean(1, keepdim=True))                           # 0.2.0
             elif self.dueling_type == "max":    # Q(s,a)=V(s)+(A(s,a)-max_a(A(s,a)))
-                x = v + (a - a.max(1)[0].expand(x.size(0), self.output_dims))
+                # x = v + (a - a.max(1)[0]).expand(x.size(0), self.output_dims) # 0.1.12
+                x = v + (a - a.max(1, keepdim=True)[0])                         # 0.2.0
             elif self.dueling_type == "naive":  # Q(s,a)=V(s)+ A(s,a)
                 x = v + a
             else:

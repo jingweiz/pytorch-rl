@@ -107,7 +107,8 @@ class DQNAgent(Agent):
             q_values_vb = self.model(state1_batch_vb)
             # Detach this variable from the current graph since we don't want gradients to propagate
             q_values_vb = Variable(q_values_vb.data)
-            _, q_max_actions_vb = q_values_vb.max(dim=1)
+            # _, q_max_actions_vb = q_values_vb.max(dim=1)              # 0.1.12
+            _, q_max_actions_vb = q_values_vb.max(dim=1, keepdim=True)  # 0.2.0
             # Now, estimate Q values using the target network but select the values with the
             # highest Q value wrt to the online model (as computed above).
             next_max_q_values_vb = self.target_model(state1_batch_vb)
@@ -121,14 +122,16 @@ class DQNAgent(Agent):
             next_max_q_values_vb = self.target_model(state1_batch_vb)
             # Detach this variable from the current graph since we don't want gradients to propagate
             next_max_q_values_vb = Variable(next_max_q_values_vb.data)
-            next_max_q_values_vb, _ = next_max_q_values_vb.max(dim = 1)
+            # next_max_q_values_vb, _ = next_max_q_values_vb.max(dim = 1)               # 0.1.12
+            next_max_q_values_vb, _ = next_max_q_values_vb.max(dim = 1, keepdim=True)   # 0.2.0
 
         # Compute r_t + gamma * max_a Q(s_t+1, a) and update the targets accordingly
         # but only for the affected output units (as given by action_batch).
         current_q_values_vb = self.model(state0_batch_vb).gather(1, action_batch_vb.unsqueeze(1)).squeeze()
         # Set discounted reward to zero for all states that were terminal.
         next_max_q_values_vb = next_max_q_values_vb * terminal1_batch_vb.unsqueeze(1)
-        expected_q_values_vb = reward_batch_vb + self.gamma * next_max_q_values_vb
+        # expected_q_values_vb = reward_batch_vb + self.gamma * next_max_q_values_vb            # 0.1.12
+        expected_q_values_vb = reward_batch_vb + self.gamma * next_max_q_values_vb.squeeze()    # 0.2.0
         # Compute temporal difference error, use huber loss to mitigate outlier impact
         # TODO: can optionally use huber loss from here: https://medium.com/@karpathy/yes-you-should-understand-backprop-e2f06eab496b
         td_error_vb = self.value_criteria(current_q_values_vb, expected_q_values_vb)
