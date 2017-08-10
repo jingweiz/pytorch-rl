@@ -5,32 +5,16 @@ import numpy as np
 import random
 import time
 import math
-
 import torch
-import torch.multiprocessing as mp
 from torch.autograd import Variable
 import torch.nn.functional as F
 
-from utils.helpers import Experience, AugmentedExperience, one_hot
+from utils.helpers import AugmentedExperience
+from core.agent_single_process import AgentSingleProcess
 
-class A3CSingleProcess(mp.Process):
+class A3CSingleProcess(AgentSingleProcess):
     def __init__(self, master, process_id=0):
-        super(A3CSingleProcess, self).__init__(name = "Process-%d" % process_id)
-        # NOTE: self.master.* refers to parameters shared across all processes
-        # NOTE: self.*        refers to process-specific properties
-        # NOTE: we are not copying self.master.* to self.* to keep the code clean
-
-        self.master = master
-        self.process_id = process_id
-
-        # env
-        self.env = self.master.env_prototype(self.master.env_params, self.process_id)
-        # model
-        self.model = self.master.model_prototype(self.master.model_params)
-        self._sync_local_with_global()
-
-        # experience
-        self._reset_experience()
+        super(A3CSingleProcess, self).__init__(master, process_id)
 
         # lstm hidden states
         if self.master.enable_lstm:
@@ -42,13 +26,6 @@ class A3CSingleProcess(mp.Process):
             self.pi_vb = Variable(torch.Tensor([math.pi]).type(self.master.dtype))
 
         self.master.logger.warning("Registered A3C-SingleProcess-Agent #" + str(self.process_id) + " w/ Env (seed:" + str(self.env.seed) + ").")
-
-    def _reset_experience(self):    # for getting one set of observation from env for every action taken
-        self.experience = Experience(state0 = None,
-                                     action = None,
-                                     reward = None,
-                                     state1 = None,
-                                     terminal1 = False) # TODO: should check this again
 
     # NOTE: to be called at the beginning of each new episode, clear up the hidden state
     def _reset_lstm_hidden_vb_episode(self, training=True): # seq_len, batch_size, hidden_dim
@@ -64,9 +41,6 @@ class A3CSingleProcess(mp.Process):
     def _reset_lstm_hidden_vb_rollout(self):
         self.lstm_hidden_vb = (Variable(self.lstm_hidden_vb[0].data),
                                Variable(self.lstm_hidden_vb[1].data))
-
-    def _sync_local_with_global(self):  # grab the current global model for local learning/evaluating
-        self.model.load_state_dict(self.master.model.state_dict())
 
     def _preprocessState(self, state, is_valotile=False):
         if isinstance(state, list):
@@ -106,12 +80,9 @@ class A3CSingleProcess(mp.Process):
             return action, p_vb, sig_vb, v_vb
 
     def _normal(self, x, mu, sigma_sq):
-        a = (-1*(x-mu).pow(2)/(2*sigma_sq)).exp()
-        b = 1/(2*sigma_sq*self.pi_vb.expand_as(sigma_sq)).sqrt()
-        return (a*b).log()
-
-    def run(self):
-        raise NotImplementedError("not implemented in base calss")
+        a = (-1 * (x - mu).pow(2) / (2 * sigma_sq)).exp()
+        b = 1 / (2 * sigma_sq * self.pi_vb.expand_as(sigma_sq)).sqrt()
+        return (a * b).log()
 
 class A3CLearner(A3CSingleProcess):
     def __init__(self, master, process_id=0):
@@ -152,16 +123,6 @@ class A3CLearner(A3CSingleProcess):
                                            policy_vb = [],
                                            sigmoid_vb = [],
                                            value0_vb = [])
-
-    # NOTE: since no backward passes has ever been run on the global model
-    # NOTE: its grad has never been initialized, here we ensure proper initialization
-    # NOTE: reference: https://discuss.pytorch.org/t/problem-on-variable-grad-data/957
-    def _ensure_global_grads(self):
-        for global_param, local_param in zip(self.master.model.parameters(),
-                                             self.model.parameters()):
-            if global_param.grad is not None:
-                return
-            global_param._grad = local_param.grad
 
     def _get_valueT_vb(self):
         if self.rollout.terminal1[-1]:  # for terminal sT
