@@ -28,6 +28,12 @@ class ACERAgent(Agent):
         self.optimizer = self.optim(self.model.parameters(), lr = self.lr)
         self.optimizer.share_memory()       # NOTE
 
+        # global shared average model: for 1st order trpo policy update
+        self.average_model = self.model_prototype(self.model_params)
+        self.average_model.load_state_dict(self.model.state_dict())
+        self.average_model.share_memory()   # NOTE
+        for param in self.average_model.parameters(): param.requires_grad = False
+
         # global counters
         self.frame_step   = mp.Value('l', 0) # global frame step counter
         self.train_step   = mp.Value('l', 0) # global train step counter
