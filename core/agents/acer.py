@@ -4,7 +4,7 @@ from __future__ import print_function
 import torch.multiprocessing as mp
 
 from core.agent import Agent
-from core.agents.acerSingleProcess import ACERLearner, ACEREvaluator, ACERTester
+from core.agents.acer_single_process import ACERLearner, ACEREvaluator, ACERTester
 
 class ACERAgent(Agent):
     def __init__(self, args, env_prototype, model_prototype, memory_prototype):

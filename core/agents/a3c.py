@@ -4,7 +4,7 @@ from __future__ import print_function
 import torch.multiprocessing as mp
 
 from core.agent import Agent
-from core.agents.a3cSingleProcess import A3CLearner, A3CEvaluator, A3CTester
+from core.agents.a3c_single_process import A3CLearner, A3CEvaluator, A3CTester
 
 class A3CAgent(Agent):
     def __init__(self, args, env_prototype, model_prototype, memory_prototype):
