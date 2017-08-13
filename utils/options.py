@@ -22,7 +22,7 @@ CONFIGS = [
 [ "dqn",      "atari",     "BreakoutDeterministic-v4", "dqn-cnn",      "sequential"],  # 4
 [ "a3c",      "atari",     "PongDeterministic-v4",     "a3c-cnn-dis",  "none"      ],  # 5
 [ "a3c",      "gym",       "InvertedPendulum-v1",      "a3c-mlp-con",  "none"      ],  # 6
-[ "acer",     "gym",       "CartPole-v1",              "acer-mlp-dis", "none"      ]   # 7  # NOTE: acer still under development, dont use this config
+[ "acer",     "gym",       "CartPole-v1",              "acer-mlp-dis", "episodic"  ]   # 7  # NOTE: acer still under development, dont use this config
 ]
 
 class Params(object):   # NOTE: shared across all modules
@@ -31,7 +31,7 @@ class Params(object):   # NOTE: shared across all modules
 
         # training signature
         self.machine     = "daim"    # "machine_id"
-        self.timestamp   = "17080900"   # "yymmdd##"
+        self.timestamp   = "17081300"   # "yymmdd##"
         # training configuration
         self.mode        = 1            # 1(train) | 2(test model_file)
         self.config      = 7
@@ -147,14 +147,8 @@ class MemoryParams(Params):     # settings for replay memory
     def __init__(self):
         super(MemoryParams, self).__init__()
 
-        if self.env_type == "gym":
+        if self.agent_type == "dqn" and self.env_type == "gym":
             self.memory_size = 50000
-        elif self.env_type == "atari-ram":
-            self.memory_size = 1000000
-        elif self.env_type == "atari":
-            self.memory_size = 1000000
-        elif self.env_type == "lab":
-            self.memory_size = 1000000
         else:
             self.memory_size = 1000000
 
@@ -241,7 +235,7 @@ class AgentParams(Params):  # hyperparameters for drl agents
             self.beta                = 0.01     # coefficient for entropy penalty
         elif self.agent_type == "acer":
             self.steps               = 20000000 # max #iterations
-            self.early_stop          = None     # max #steps per episode
+            self.early_stop          = 500      # max #steps per episode
             self.gamma               = 0.99
             self.clip_grad           = 40.
             self.lr                  = 0.0001
@@ -251,8 +245,13 @@ class AgentParams(Params):  # hyperparameters for drl agents
             self.prog_freq           = self.eval_freq
             self.test_nepisodes      = 10
 
+            self.learn_start         = 20000    # start off-policy learning after this many steps
+            self.batch_size          = 16
+            self.valid_size          = 500
+
             self.rollout_steps       = 20       # max look-ahead steps in a single rollout
             self.tau                 = 1.
+            self.beta                = 1e-3     # coefficient for entropy penalty
         else:
             self.steps               = 1000000  # max #iterations
             self.early_stop          = None     # max #steps per episode
@@ -279,6 +278,8 @@ class AgentParams(Params):  # hyperparameters for drl agents
 
             self.rollout_steps       = 20       # max look-ahead steps in a single rollout
             self.tau                 = 1.
+
+        if self.memory_type == "episodic": assert self.early_stop is not None
 
         self.env_params    = EnvParams()
         self.model_params  = ModelParams()

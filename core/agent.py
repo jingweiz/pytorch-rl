@@ -84,8 +84,13 @@ class Agent(object):
             self.enable_continuous = args.enable_continuous
             self.num_processes = args.num_processes
 
+            self.learn_start = args.learn_start
+            self.batch_size = args.batch_size
+            self.valid_size = args.valid_size
+
             self.rollout_steps = args.rollout_steps
             self.tau = args.tau
+            self.beta = args.beta
 
     def _reset_experience(self):
         self.experience = Experience(state0 = None,

@@ -16,6 +16,10 @@ class ACERSingleProcess(AgentSingleProcess):
     def __init__(self, master, process_id=0):
         super(ACERSingleProcess, self).__init__(master, process_id)
 
+        # diff from a3c, acer is capable of off-policy learning and use replay buffer
+        self.memory = self.master.memory_prototype(capacity = self.master.memory_params.memory_size,
+                                                   max_episode_length = self.master.early_stop)
+
         # # lstm hidden states
         # if self.master.enable_lstm:
         #     self._reset_lstm_hidden_vb_episode() # clear up hidden state
