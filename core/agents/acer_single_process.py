@@ -169,6 +169,9 @@ class ACERLearner(ACERSingleProcess):
         # reset rollout experiences
         self._reset_rollout()
 
+        # first do forward
+        # then after forward also need to push into replay buffer
+
         return episode_steps, episode_reward
 
     # NOTE: sample from replay buffer for a bunch of trajectories
@@ -176,6 +179,10 @@ class ACERLearner(ACERSingleProcess):
     def _off_policy_rollout(self):
         # reset rollout experiences
         self._reset_rollout()
+
+        # first sample trajectories
+        # then do the normal forward
+        # also need to log some training stats here maybe
 
         return
 
