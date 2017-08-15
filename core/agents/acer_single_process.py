@@ -143,7 +143,6 @@ class ACERLearner(ACERSingleProcess):
         episode_reward = None
         should_start_new = True
         while self.master.train_step.value < self.master.steps:
-            # print(self.master.train_step.value)
             # sync in every step
             self._sync_local_with_global()
             self.optimizer.zero_grad()
@@ -234,7 +233,6 @@ class ACEREvaluator(ACERSingleProcess):
             self.win_repisodes_solved = "win_repisodes_solved"
 
     def _eval_model(self):
-        print("===================================== eval")
         self.last_eval = time.time()
         eval_at_train_step = self.master.train_step.value
         eval_at_frame_step = self.master.frame_step.value
