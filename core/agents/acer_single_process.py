@@ -10,6 +10,7 @@ from torch.autograd import Variable
 import torch.nn.functional as F
 
 from utils.helpers import AugmentedExperience
+from utils.distributions import sample_poisson
 from core.agent_single_process import AgentSingleProcess
 
 class ACERSingleProcess(AgentSingleProcess):
@@ -23,8 +24,9 @@ class ACERSingleProcess(AgentSingleProcess):
 
         # lstm hidden states
         if self.master.enable_lstm:
-            self._reset_lstm_hidden_vb_episode() # clear up hidden state
-            self._reset_lstm_hidden_vb_rollout() # detach the previous variable from the computation graph
+            self._reset_on_policy_lstm_hidden_vb_episode() # clear up hidden state
+            self._reset_on_policy_lstm_hidden_vb_rollout() # detach the previous variable from the computation graph
+            self._reset_off_policy_lstm_hidden_vb()        # clear up hidden state, since sampled batches won't be connected from previous batches
 
         # # NOTE global variable pi
         # if self.master.enable_continuous:
@@ -33,20 +35,32 @@ class ACERSingleProcess(AgentSingleProcess):
         self.master.logger.warning("Registered ACER-SingleProcess-Agent #" + str(self.process_id) + " w/ Env (seed:" + str(self.env.seed) + ").")
 
     # NOTE: to be called at the beginning of each new episode, clear up the hidden state
-    def _reset_lstm_hidden_vb_episode(self, training=True): # seq_len, batch_size, hidden_dim
+    def _reset_on_policy_lstm_hidden_vb_episode(self, training=True): # seq_len, batch_size, hidden_dim
         not_training = not training
         if self.master.enable_continuous:
-            # self.lstm_hidden_vb = (Variable(torch.zeros(2, self.master.hidden_dim).type(self.master.dtype), volatile=not_training),
-            #                        Variable(torch.zeros(2, self.master.hidden_dim).type(self.master.dtype), volatile=not_training))
+            # self.on_policy_lstm_hidden_vb = (Variable(torch.zeros(2, self.master.hidden_dim).type(self.master.dtype), volatile=not_training),
+            #                                  Variable(torch.zeros(2, self.master.hidden_dim).type(self.master.dtype), volatile=not_training))
             pass
         else:
-            self.lstm_hidden_vb = (Variable(torch.zeros(1, self.master.hidden_dim).type(self.master.dtype), volatile=not_training),
-                                   Variable(torch.zeros(1, self.master.hidden_dim).type(self.master.dtype), volatile=not_training))
+            self.on_policy_lstm_hidden_vb = (Variable(torch.zeros(1, self.master.hidden_dim).type(self.master.dtype), volatile=not_training),
+                                             Variable(torch.zeros(1, self.master.hidden_dim).type(self.master.dtype), volatile=not_training))
 
     # NOTE: to be called at the beginning of each rollout, detach the previous variable from the graph
-    def _reset_lstm_hidden_vb_rollout(self):
-        self.lstm_hidden_vb = (Variable(self.lstm_hidden_vb[0].data),
-                               Variable(self.lstm_hidden_vb[1].data))
+    def _reset_on_policy_lstm_hidden_vb_rollout(self):
+        self.on_policy_lstm_hidden_vb = (Variable(self.on_policy_lstm_hidden_vb[0].data),
+                                         Variable(self.on_policy_lstm_hidden_vb[1].data))
+
+    # NOTE: to be called before each off-policy learning phase
+    # NOTE: keeping it separate so as not to mess up the on_policy_lstm_hidden_vb if the current on-policy episode has not finished after the last rollout
+    def _reset_off_policy_lstm_hidden_vb(self, training=True):
+        not_training = not training
+        if self.master.enable_continuous:
+            # self.off_policy_lstm_hidden_vb = (Variable(torch.zeros(self.master.batch_size * 2, self.master.hidden_dim).type(self.master.dtype), volatile=not_training),
+            #                                   Variable(torch.zeros(self.master.batch_size * 2, self.master.hidden_dim).type(self.master.dtype), volatile=not_training))
+            pass
+        else:
+            self.off_policy_lstm_hidden_vb = (Variable(torch.zeros(self.master.batch_size, self.master.hidden_dim).type(self.master.dtype), volatile=not_training),
+                                              Variable(torch.zeros(self.master.batch_size, self.master.hidden_dim).type(self.master.dtype), volatile=not_training))
 
     def _preprocessState(self, state, is_valotile=False):
         if isinstance(state, list):
@@ -103,6 +117,8 @@ class ACERLearner(ACERSingleProcess):
         # local counters
         self.frame_step   = 0   # local frame step counter
         self.train_step   = 0   # local train step counter
+        self.on_policy_train_step   = 0   # local on-policy  train step counter
+        self.off_policy_train_step  = 0   # local off-policy train step counter
         # local training stats
         self.p_loss_avg   = 0.  # global policy loss
         self.v_loss_avg   = 0.  # global value loss
@@ -130,7 +146,21 @@ class ACERLearner(ACERSingleProcess):
                                            value0_vb = [])
 
     def _backward(self):
-        pass
+        # loss_vb = Variable(torch.zeros(1))
+        # # TODO:
+        # loss_vb.backward()
+        # torch.nn.utils.clip_grad_norm(self.model.parameters(), self.master.clip_grad)
+        #
+        # self._ensure_global_grads()
+        # self.master.optimizer.step()
+        self.train_step += 1
+        self.master.train_step.value += 1
+
+        # # log training stats
+        # self.p_loss_avg   += policy_loss_vb.data.numpy()
+        # self.v_loss_avg   += value_loss_vb.data.numpy()
+        # self.loss_avg     += loss_vb.data.numpy()
+        # self.loss_counter += 1
 
     # NOTE: get action from current model, execute in env
     # NOTE: then get AugmentedExperience to calculate stats for backward
@@ -143,11 +173,11 @@ class ACERLearner(ACERSingleProcess):
 
     # NOTE: sample from replay buffer for a bunch of trajectories
     # NOTE: then rollout on them to get AugmentedExperience to get stats for backward
-    def _off_policy_rollout(self, episode_steps, episode_reward):
+    def _off_policy_rollout(self):
         # reset rollout experiences
         self._reset_rollout()
 
-        return episode_steps, episode_reward
+        return
 
     def run(self):
         # make sure processes are not completely synced by sleeping a bit
@@ -165,19 +195,24 @@ class ACERLearner(ACERSingleProcess):
 
             # NOTE: off-policy learning
             # perfrom some off-policy training once got enough experience
-            if self.master.replay_ratio > 0 and self.memory.len >= self.master.learn_start:
+            if self.master.replay_ratio > 0:# and self.memory.len >= self.master.learn_start:
                 # sample a number of off-policy episodes based on the replay ratio
-                for _ in range(_poisson(self.master.replay_ratio)):
+                for _ in range(sample_poisson(self.master.replay_ratio)):
+                    self._reset_off_policy_lstm_hidden_vb()
                     self._off_policy_rollout()
+                    self._backward()    # NOTE: only train_step will increment inside _backward
+                    self.off_policy_train_step += 1
+                    self.master.off_policy_train_step.value += 1
+
             # NOTE: on-policy learning
             # start of a new episode
             if should_start_new:
                 episode_steps = 0
                 episode_reward = 0.
-                # reset lstm_hidden_vb for new episode
+                # reset on_policy_lstm_hidden_vb for new episode
                 if self.master.enable_lstm:
                     # NOTE: clear hidden state at the beginning of each episode
-                    self._reset_lstm_hidden_vb_episode()
+                    self._reset_on_policy_lstm_hidden_vb_episode()
                 # Obtain the initial observation by resetting the environment
                 self._reset_experience()
                 self.experience = self.env.reset()
@@ -186,7 +221,7 @@ class ACERLearner(ACERSingleProcess):
                 should_start_new = False
             if self.master.enable_lstm:
                 # NOTE: detach the previous hidden variable from the graph at the beginning of each rollout
-                self._reset_lstm_hidden_vb_rollout()
+                self._reset_on_policy_lstm_hidden_vb_rollout()
             # Run a rollout for rollout_steps or until terminal
             episode_steps, episode_reward = self._on_policy_rollout(episode_steps, episode_reward)
 
@@ -198,7 +233,9 @@ class ACERLearner(ACERSingleProcess):
                     nepisodes_solved += 1
 
             # calculate loss
-            self._backward()
+            self._backward()    # NOTE: only train_step will increment inside _backward
+            self.on_policy_train_step += 1
+            self.master.on_policy_train_step.value += 1
 
             # copy local training stats to global at prog_freq, and clear up local stats
             if time.time() - self.last_prog >= self.master.prog_freq:
@@ -257,6 +294,8 @@ class ACEREvaluator(ACERSingleProcess):
         self.last_eval = time.time()
         eval_at_train_step = self.master.train_step.value
         eval_at_frame_step = self.master.frame_step.value
+        eval_at_on_policy_train_step  = self.master.on_policy_train_step.value
+        eval_at_off_policy_train_step = self.master.off_policy_train_step.value
         # first grab the latest global model to do the evaluation
         self._sync_local_with_global()
 
@@ -310,6 +349,8 @@ class ACEREvaluator(ACERSingleProcess):
             self.win_repisodes_solved = self.master.vis.scatter(X=np.array(self.repisodes_solved_log), env=self.master.refs, win=self.win_repisodes_solved, opts=dict(title="repisodes_solved"))
         # logging
         self.master.logger.warning("Reporting       @ Step: " + str(eval_at_train_step) + " | Elapsed Time: " + str(time.time() - self.start_time))
+        self.master.logger.warning("Iteration: {}; on_policy_steps: {}".format(eval_at_train_step, eval_at_on_policy_train_step))
+        self.master.logger.warning("Iteration: {}; off_policy_steps: {}".format(eval_at_train_step, eval_at_off_policy_train_step))
         self.master.logger.warning("Iteration: {}; p_loss_avg: {}".format(eval_at_train_step, self.p_loss_avg_log[-1][1]))
         self.master.logger.warning("Iteration: {}; v_loss_avg: {}".format(eval_at_train_step, self.v_loss_avg_log[-1][1]))
         self.master.logger.warning("Iteration: {}; loss_avg: {}".format(eval_at_train_step, self.loss_avg_log[-1][1]))
