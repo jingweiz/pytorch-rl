@@ -9,7 +9,7 @@ import torch
 from torch.autograd import Variable
 import torch.nn.functional as F
 
-from utils.helpers import ACER_Experience
+from utils.helpers import AugmentedExperience
 from core.agent_single_process import AgentSingleProcess
 
 class ACERSingleProcess(AgentSingleProcess):
@@ -120,17 +120,33 @@ class ACERLearner(ACERSingleProcess):
         self.loss_counter = 0
 
     def _reset_rollout(self):       # for storing the experiences collected through one rollout
-        self.rollout = ACER_Experience(state0 = [],
-                                       action = [],
-                                       reward = [],
-                                       state1 = [],
-                                       terminal1 = [],
-                                       policy_vb = [])
+        self.rollout = AugmentedExperience(state0 = [],
+                                           action = [],
+                                           reward = [],
+                                           state1 = [],
+                                           terminal1 = [],
+                                           policy_vb = [],
+                                           sigmoid_vb = [],
+                                           value0_vb = [])
 
     def _backward(self):
         pass
 
-    def _rollout(self, episode_steps, episode_reward):
+    # NOTE: get action from current model, execute in env
+    # NOTE: then get AugmentedExperience to calculate stats for backward
+    # NOTE: push them into replay buffer in the format of {s,a,r,s1,t1,p}
+    def _on_policy_rollout(self, episode_steps, episode_reward):
+        # reset rollout experiences
+        self._reset_rollout()
+
+        return episode_steps, episode_reward
+
+    # NOTE: sample from replay buffer for a bunch of trajectories
+    # NOTE: then rollout on them to get AugmentedExperience to get stats for backward
+    def _off_policy_rollout(self, episode_steps, episode_reward):
+        # reset rollout experiences
+        self._reset_rollout()
+
         return episode_steps, episode_reward
 
     def run(self):
@@ -146,9 +162,14 @@ class ACERLearner(ACERSingleProcess):
             # sync in every step
             self._sync_local_with_global()
             self.optimizer.zero_grad()
-            # reset rollout experiences
-            self._reset_rollout()
 
+            # NOTE: off-policy learning
+            # perfrom some off-policy training once got enough experience
+            if self.master.replay_ratio > 0 and self.memory.len >= self.master.learn_start:
+                # sample a number of off-policy episodes based on the replay ratio
+                for _ in range(_poisson(self.master.replay_ratio)):
+                    self._off_policy_rollout()
+            # NOTE: on-policy learning
             # start of a new episode
             if should_start_new:
                 episode_steps = 0
@@ -167,7 +188,7 @@ class ACERLearner(ACERSingleProcess):
                 # NOTE: detach the previous hidden variable from the graph at the beginning of each rollout
                 self._reset_lstm_hidden_vb_rollout()
             # Run a rollout for rollout_steps or until terminal
-            episode_steps, episode_reward = self._rollout(episode_steps, episode_reward)
+            episode_steps, episode_reward = self._on_policy_rollout(episode_steps, episode_reward)
 
             if self.experience.terminal1 or \
                self.master.early_stop and episode_steps >= self.master.early_stop:

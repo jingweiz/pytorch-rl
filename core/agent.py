@@ -84,6 +84,7 @@ class Agent(object):
             self.enable_continuous = args.enable_continuous
             self.num_processes = args.num_processes
 
+            self.replay_ratio = args.replay_ratio
             self.learn_start = args.learn_start
             self.batch_size = args.batch_size
             self.valid_size = args.valid_size

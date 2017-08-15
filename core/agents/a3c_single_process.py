@@ -9,7 +9,7 @@ import torch
 from torch.autograd import Variable
 import torch.nn.functional as F
 
-from utils.helpers import A3C_Experience
+from utils.helpers import AugmentedExperience
 from core.agent_single_process import AgentSingleProcess
 
 class A3CSingleProcess(AgentSingleProcess):
@@ -111,14 +111,14 @@ class A3CLearner(A3CSingleProcess):
         self.loss_counter = 0
 
     def _reset_rollout(self):       # for storing the experiences collected through one rollout
-        self.rollout = A3C_Experience(state0 = [],
-                                      action = [],
-                                      reward = [],
-                                      state1 = [],
-                                      terminal1 = [],
-                                      policy_vb = [],
-                                      sigmoid_vb = [],
-                                      value0_vb = [])
+        self.rollout = AugmentedExperience(state0 = [],
+                                           action = [],
+                                           reward = [],
+                                           state1 = [],
+                                           terminal1 = [],
+                                           policy_vb = [],
+                                           sigmoid_vb = [],
+                                           value0_vb = [])
 
     def _get_valueT_vb(self):
         if self.rollout.terminal1[-1]:  # for terminal sT
@@ -193,6 +193,9 @@ class A3CLearner(A3CSingleProcess):
         self.loss_counter += 1
 
     def _rollout(self, episode_steps, episode_reward):
+        # reset rollout experiences
+        self._reset_rollout()
+
         t_start = self.frame_step
         # continue to rollout only if:
         # 1. not running out of max steps of this current rollout, and
@@ -244,8 +247,6 @@ class A3CLearner(A3CSingleProcess):
             # sync in every step
             self._sync_local_with_global()
             self.optimizer.zero_grad()
-            # reset rollout experiences
-            self._reset_rollout()
 
             # start of a new episode
             if should_start_new:

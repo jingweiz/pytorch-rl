@@ -23,14 +23,18 @@ def loggerConfig(log_file, verbose=2):
 
 # This is to be understood as a transition: Given `state0`, performing `action`
 # yields `reward` and results in `state1`, which might be `terminal`.
-# NOTE: used as the return format for Env(), and for format to push into replay memory for off-policy methods
+# NOTE: used as the return format for Env(), and as the format to push into replay memory for off-policy methods (DQN)
 # NOTE: when return from Env(), state0 is always None
-Experience      = namedtuple('Experience',      'state0, action, reward, state1, terminal1')
-# NOTE: also used for on-policy methods for collect experiences over a rollout of an episode
+Experience          = namedtuple('Experience',          'state0, action, reward, state1, terminal1')
+# NOTE: used for on-policy methods for collect experiences over a rollout of an episode
 # NOTE: policy_vb & value0_vb for storing output Variables along a rollout # NOTE: they should not be detached from the graph!
-A3C_Experience  = namedtuple('A3C_Experience',  'state0, action, reward, state1, terminal1, policy_vb, sigmoid_vb, value0_vb')
-# NOTE: used for ACER
-ACER_Experience = namedtuple('ACER_Experience', 'state0, action, reward, state1, terminal1, policy_vb')
+AugmentedExperience = namedtuple('AugmentedExperience', 'state0, action, reward, state1, terminal1, policy_vb, sigmoid_vb, value0_vb')
+
+# NOTE: used for on-policy methods for collect experiences over a rollout of an episode
+# NOTE: policy_vb & value0_vb for storing output Variables along a rollout # NOTE: they should not be detached from the graph!
+# On_Policy_Experience  = namedtuple('On_Policy_Experience',  'state0, action, reward, state1, terminal1, policy_vb, sigmoid_vb, value0_vb')
+# # NOTE: used as the format to push into the replay memory for ACER; when sampled, used to get On_Experience
+# Off_Policy_Experience = namedtuple('Off_Policy_Experience', 'state0, action, reward, state1, terminal1, policy_vb')
 
 def preprocessAtari(frame):
     frame = frame[34:34 + 160, :160]

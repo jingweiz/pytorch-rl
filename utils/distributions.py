@@ -11,3 +11,8 @@ def sample_poisson(lmbd):
         k += 1
         p *= random.uniform(0, 1)
     return max(k - 1, 0)
+
+# sum = 0
+# for i in range(1000):
+#     sum += sample_poisson(0)
+# print(sum)
