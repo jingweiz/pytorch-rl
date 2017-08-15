@@ -147,6 +147,8 @@ class MemoryParams(Params):     # settings for replay memory
     def __init__(self):
         super(MemoryParams, self).__init__()
 
+        # NOTE: for multiprocess agents. this memory_size is the total number
+        # NOTE: across all processes
         if self.agent_type == "dqn" and self.env_type == "gym":
             self.memory_size = 50000
         else:

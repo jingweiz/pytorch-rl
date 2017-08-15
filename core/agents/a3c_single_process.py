@@ -9,7 +9,7 @@ import torch
 from torch.autograd import Variable
 import torch.nn.functional as F
 
-from utils.helpers import AugmentedExperience
+from utils.helpers import A3C_Experience
 from core.agent_single_process import AgentSingleProcess
 
 class A3CSingleProcess(AgentSingleProcess):
@@ -57,26 +57,21 @@ class A3CSingleProcess(AgentSingleProcess):
                 p_vb, v_vb, self.lstm_hidden_vb = self.model(state_vb, self.lstm_hidden_vb)
             else:
                 p_vb, v_vb = self.model(state_vb)
-
             if self.training:
                 action = p_vb.multinomial().data[0][0]
             else:
                 action = p_vb.max(1)[1].data.squeeze().numpy()[0]
             return action, p_vb, v_vb
-
-        # NOTE continous control p_vb here is the mu_vb of continous action dist
-        else:
+        else:   # NOTE continous control p_vb here is the mu_vb of continous action dist
             if self.master.enable_lstm:
                 p_vb, sig_vb, v_vb, self.lstm_hidden_vb = self.model(state_vb, self.lstm_hidden_vb)
             else:
                 p_vb, sig_vb, v_vb = self.model(state_vb)
-
             if self.training:
                 _eps = torch.randn(p_vb.size())
                 action = (p_vb + sig_vb.sqrt()*Variable(_eps)).data.numpy()
             else:
                 action = p_vb.data.numpy()
-
             return action, p_vb, sig_vb, v_vb
 
     def _normal(self, x, mu, sigma_sq):
@@ -95,6 +90,7 @@ class A3CLearner(A3CSingleProcess):
         self._reset_rollout()
 
         self.training = True    # choose actions by polinomial
+        self.model.train(self.training)
         # local counters
         self.frame_step   = 0   # local frame step counter
         self.train_step   = 0   # local train step counter
@@ -115,14 +111,14 @@ class A3CLearner(A3CSingleProcess):
         self.loss_counter = 0
 
     def _reset_rollout(self):       # for storing the experiences collected through one rollout
-        self.rollout = AugmentedExperience(state0 = [],
-                                           action = [],
-                                           reward = [],
-                                           state1 = [],
-                                           terminal1 = [],
-                                           policy_vb = [],
-                                           sigmoid_vb = [],
-                                           value0_vb = [])
+        self.rollout = A3C_Experience(state0 = [],
+                                      action = [],
+                                      reward = [],
+                                      state1 = [],
+                                      terminal1 = [],
+                                      policy_vb = [],
+                                      sigmoid_vb = [],
+                                      value0_vb = [])
 
     def _get_valueT_vb(self):
         if self.rollout.terminal1[-1]:  # for terminal sT
@@ -296,6 +292,7 @@ class A3CEvaluator(A3CSingleProcess):
         super(A3CEvaluator, self).__init__(master, process_id)
 
         self.training = False   # choose actions w/ max probability
+        self.model.train(self.training)
         self._reset_loggings()
 
         self.start_time = time.time()
@@ -476,6 +473,7 @@ class A3CTester(A3CSingleProcess):
         super(A3CTester, self).__init__(master, process_id)
 
         self.training = False   # choose actions w/ max probability
+        self.model.train(self.training)
         self._reset_loggings()
 
         self.start_time = time.time()

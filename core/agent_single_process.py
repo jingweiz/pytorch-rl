@@ -11,7 +11,7 @@ from torch.autograd import Variable
 import torch.nn.functional as F
 import torch.multiprocessing as mp
 
-from utils.helpers import Experience, AugmentedExperience, one_hot
+from utils.helpers import Experience, one_hot
 
 class AgentSingleProcess(mp.Process):
     def __init__(self, master, process_id=0):
