@@ -47,9 +47,9 @@ class ACERMlpDisModel(Model):
         if self.enable_lstm:
             x, c = self.lstm(x, lstm_hidden_vb)
         policy = self.actor_3(self.actor_2(x)).clamp(max=1-1e-20)
-        Q = self.critic_2(x)
-        V = (Q * policy).sum(1)     # expectation of Q under /pi
+        q = self.critic_2(x)
+        v = (q * policy).sum(1)     # expectation of Q under /pi
         if self.enable_lstm:
-            return policy, Q, V, (x, c)
+            return policy, q, v, (x, c)
         else:
-            return policy, Q, V 
+            return policy, q, v 

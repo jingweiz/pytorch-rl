@@ -42,13 +42,21 @@ class ACERSingleProcess(AgentSingleProcess):
             #                                  Variable(torch.zeros(2, self.master.hidden_dim).type(self.master.dtype), volatile=not_training))
             pass
         else:
+            # for self.model
             self.on_policy_lstm_hidden_vb = (Variable(torch.zeros(1, self.master.hidden_dim).type(self.master.dtype), volatile=not_training),
                                              Variable(torch.zeros(1, self.master.hidden_dim).type(self.master.dtype), volatile=not_training))
+            # for self.master.avg_model # NOTE: no grads are needed to compute on this model, so always volatile
+            self.on_policy_avg_lstm_hidden_vb = (Variable(torch.zeros(1, self.master.hidden_dim).type(self.master.dtype), volatile=True),
+                                                 Variable(torch.zeros(1, self.master.hidden_dim).type(self.master.dtype), volatile=True))
 
     # NOTE: to be called at the beginning of each rollout, detach the previous variable from the graph
     def _reset_on_policy_lstm_hidden_vb_rollout(self):
+        # for self.model
         self.on_policy_lstm_hidden_vb = (Variable(self.on_policy_lstm_hidden_vb[0].data),
                                          Variable(self.on_policy_lstm_hidden_vb[1].data))
+        # for self.master.avg_model
+        self.on_policy_avg_lstm_hidden_vb = (Variable(self.on_policy_avg_lstm_hidden_vb[0].data),
+                                             Variable(self.on_policy_avg_lstm_hidden_vb[1].data))
 
     # NOTE: to be called before each off-policy learning phase
     # NOTE: keeping it separate so as not to mess up the on_policy_lstm_hidden_vb if the current on-policy episode has not finished after the last rollout
@@ -59,8 +67,12 @@ class ACERSingleProcess(AgentSingleProcess):
             #                                   Variable(torch.zeros(self.master.batch_size * 2, self.master.hidden_dim).type(self.master.dtype), volatile=not_training))
             pass
         else:
+            # for self.model
             self.off_policy_lstm_hidden_vb = (Variable(torch.zeros(self.master.batch_size, self.master.hidden_dim).type(self.master.dtype), volatile=not_training),
                                               Variable(torch.zeros(self.master.batch_size, self.master.hidden_dim).type(self.master.dtype), volatile=not_training))
+            # for self.master.avg_model # NOTE: no grads are needed to compute on this model, so always volatile
+            self.off_policy_avg_lstm_hidden_vb = (Variable(torch.zeros(self.master.batch_size, self.master.hidden_dim).type(self.master.dtype), volatile=True),
+                                                  Variable(torch.zeros(self.master.batch_size, self.master.hidden_dim).type(self.master.dtype), volatile=True))
 
     def _preprocessState(self, state, is_valotile=False):
         if isinstance(state, list):
@@ -71,36 +83,27 @@ class ACERSingleProcess(AgentSingleProcess):
             state_vb = Variable(torch.from_numpy(state).unsqueeze(0).type(self.master.dtype), volatile=is_valotile)
         return state_vb
 
-    def _forward(self, state_vb):
+    def _forward(self, state_vb, on_policy=True):
         if not self.master.enable_continuous:
             if self.master.enable_lstm:
-                # p_vb, v_vb, self.lstm_hidden_vb = self.model(state_vb, self.lstm_hidden_vb)
-                pass
+                if on_policy:   # learn from the current experience
+                    p_vb, q_vb, v_vb, self.on_policy_lstm_hidden_vb    = self.model(state_vb, self.on_policy_lstm_hidden_vb)
+                    avg_p_vb, _, _, self.on_policy_avg_lstm_hidden_vb  = self.master.avg_model(state_vb, self.on_policy_avg_lstm_hidden_vb)
+                    # then we also need to get an action for the next time step
+                    if self.training:
+                        action = p_vb.multinomial().data[0][0]
+                    else:
+                        action = p_vb.max(1)[1].data.squeeze().numpy()[0]
+                    return action, p_vb, q_vb, v_vb
+                else:           # learn from the sampled replays
+                    p_vb, q_vb, v_vb, self.off_policy_lstm_hidden_vb   = self.model(state_vb, self.off_policy_lstm_hidden_vb)
+                    avg_p_vb, _, _, self.off_policy_avg_lstm_hidden_vb = self.master.avg_model(state_vb, self.off_policy_avg_lstm_hidden_vb)
+                    # TODO: do we also need to get an action for the off-policy case? I think so, then the p_vb would be a batch
+                    return _, p_vb, q_vb, v_vb
             else:
-                # p_vb, v_vb = self.model(state_vb)
                 pass
-            if self.training:
-                # action = p_vb.multinomial().data[0][0]
-                pass
-            else:
-                # action = p_vb.max(1)[1].data.squeeze().numpy()[0]
-                pass
-            # return action, p_vb, v_vb
         else:   # NOTE continous control p_vb here is the mu_vb of continous action dist
-            if self.master.enable_lstm:
-                # p_vb, sig_vb, v_vb, self.lstm_hidden_vb = self.model(state_vb, self.lstm_hidden_vb)
-                pass
-            else:
-                # p_vb, sig_vb, v_vb = self.model(state_vb)
-                pass
-            if self.training:
-                # _eps = torch.randn(p_vb.size())
-                # action = (p_vb + sig_vb.sqrt()*Variable(_eps)).data.numpy()
-                pass
-            else:
-                # action = p_vb.data.numpy()
-                pass
-            # return action, p_vb, sig_vb, v_vb
+            pass
 
 class ACERLearner(ACERSingleProcess):
     def __init__(self, master, process_id=0):
@@ -143,7 +146,7 @@ class ACERLearner(ACERSingleProcess):
                                            terminal1 = [],
                                            policy_vb = [],
                                            sigmoid_vb = [],
-                                           value0_vb = [])
+                                           value0_vb = [])  # NOTE: here we store q instead of v
 
     def _backward(self):
         # loss_vb = Variable(torch.zeros(1))
@@ -169,7 +172,44 @@ class ACERLearner(ACERSingleProcess):
         # reset rollout experiences
         self._reset_rollout()
 
-        # first do forward
+        t_start = self.frame_step
+        # continue to rollout only if:
+        # 1. not running out of max steps of this current rollout, and
+        # 2. not terminal, and
+        # 3. not exceeding max steps of this current episode
+        # 4. master not exceeding max train steps
+        while (self.frame_step - t_start) < self.master.rollout_steps \
+              and not self.experience.terminal1 \
+              and (self.master.early_stop is None or episode_steps < self.master.early_stop):
+            # NOTE: here first store the last frame: experience.state1 as rollout.state0
+            self.rollout.state0.append(self.experience.state1)
+            # then get the action to take from rollout.state0 (experience.state1)
+            if self.master.enable_continuous:
+                # action, p_vb, sig_vb, v_vb = self._forward(self._preprocessState(self.experience.state1))
+                # self.rollout.sigmoid_vb.append(sig_vb)
+                # TODO:
+                pass
+            else:
+                action, p_vb, q_vb, v_vb = self._forward(self._preprocessState(self.experience.state1))
+            # then execute action in env to get a new experience.state1 -> rollout.state1
+            self.experience = self.env.step(action)
+            # push experience into rollout
+            self.rollout.action.append(action)
+            self.rollout.reward.append(self.experience.reward)
+            self.rollout.state1.append(self.experience.state1)
+            self.rollout.terminal1.append(self.experience.terminal1)
+            self.rollout.policy_vb.append(p_vb)
+            self.rollout.value0_vb.append(q_vb) # NOTE: here we store q instead of v
+
+            episode_steps += 1
+            episode_reward += self.experience.reward
+            self.frame_step += 1
+            self.master.frame_step.value += 1
+
+            # NOTE: we put this condition in the end to make sure this current rollout won't be empty
+            if self.master.train_step.value >= self.master.steps:
+                break
+
         # then after forward also need to push into replay buffer
 
         return episode_steps, episode_reward
@@ -207,6 +247,7 @@ class ACERLearner(ACERSingleProcess):
                 for _ in range(sample_poisson(self.master.replay_ratio)):
                     self._reset_off_policy_lstm_hidden_vb()
                     self._off_policy_rollout()
+                    # calculate loss
                     self._backward()    # NOTE: only train_step will increment inside _backward
                     self.off_policy_train_step += 1
                     self.master.off_policy_train_step.value += 1

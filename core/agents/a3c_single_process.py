@@ -228,7 +228,7 @@ class A3CLearner(A3CSingleProcess):
             self.frame_step += 1
             self.master.frame_step.value += 1
 
-            # NOTE: we put this condition inside to make sure this current rollout won't be empty
+            # NOTE: we put this condition in the end to make sure this current rollout won't be empty
             if self.master.train_step.value >= self.master.steps:
                 break
 
