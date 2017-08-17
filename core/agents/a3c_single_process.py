@@ -52,17 +52,7 @@ class A3CSingleProcess(AgentSingleProcess):
         return state_vb
 
     def _forward(self, state_vb):
-        if not self.master.enable_continuous:
-            if self.master.enable_lstm:
-                p_vb, v_vb, self.lstm_hidden_vb = self.model(state_vb, self.lstm_hidden_vb)
-            else:
-                p_vb, v_vb = self.model(state_vb)
-            if self.training:
-                action = p_vb.multinomial().data[0][0]
-            else:
-                action = p_vb.max(1)[1].data.squeeze().numpy()[0]
-            return action, p_vb, v_vb
-        else:   # NOTE continous control p_vb here is the mu_vb of continous action dist
+        if self.master.enable_continuous: # NOTE continous control p_vb here is the mu_vb of continous action dist
             if self.master.enable_lstm:
                 p_vb, sig_vb, v_vb, self.lstm_hidden_vb = self.model(state_vb, self.lstm_hidden_vb)
             else:
@@ -73,6 +63,16 @@ class A3CSingleProcess(AgentSingleProcess):
             else:
                 action = p_vb.data.numpy()
             return action, p_vb, sig_vb, v_vb
+        else:
+            if self.master.enable_lstm:
+                p_vb, v_vb, self.lstm_hidden_vb = self.model(state_vb, self.lstm_hidden_vb)
+            else:
+                p_vb, v_vb = self.model(state_vb)
+            if self.training:
+                action = p_vb.multinomial().data[0][0]
+            else:
+                action = p_vb.max(1)[1].data.squeeze().numpy()[0]
+            return action, p_vb, v_vb
 
     def _normal(self, x, mu, sigma_sq):
         a = (-1 * (x - mu).pow(2) / (2 * sigma_sq)).exp()

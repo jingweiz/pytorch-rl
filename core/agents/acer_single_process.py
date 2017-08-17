@@ -84,7 +84,9 @@ class ACERSingleProcess(AgentSingleProcess):
         return state_vb
 
     def _forward(self, state_vb, on_policy=True):
-        if not self.master.enable_continuous:
+        if self.master.enable_continuous:
+            pass
+        else:
             if self.master.enable_lstm:
                 if on_policy:   # learn from the current experience
                     p_vb, q_vb, v_vb, self.on_policy_lstm_hidden_vb    = self.model(state_vb, self.on_policy_lstm_hidden_vb)
@@ -102,8 +104,6 @@ class ACERSingleProcess(AgentSingleProcess):
                     return _, p_vb, q_vb, v_vb
             else:
                 pass
-        else:   # NOTE continous control p_vb here is the mu_vb of continous action dist
-            pass
 
 class ACERLearner(ACERSingleProcess):
     def __init__(self, master, process_id=0):
@@ -242,7 +242,7 @@ class ACERLearner(ACERSingleProcess):
 
             # NOTE: off-policy learning
             # perfrom some off-policy training once got enough experience
-            if self.master.replay_ratio > 0:# and self.memory.len >= self.master.learn_start:
+            if self.master.replay_ratio > 0:# TODO: comment off this part #and self.memory.len >= self.master.learn_start:
                 # sample a number of off-policy episodes based on the replay ratio
                 for _ in range(sample_poisson(self.master.replay_ratio)):
                     self._reset_off_policy_lstm_hidden_vb()
