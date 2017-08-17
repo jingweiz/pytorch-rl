@@ -9,7 +9,7 @@ import torch
 from torch.autograd import Variable
 import torch.nn.functional as F
 
-from utils.helpers import AugmentedExperience
+from utils.helpers import A3C_Experience
 from core.agent_single_process import AgentSingleProcess
 
 class A3CSingleProcess(AgentSingleProcess):
@@ -111,14 +111,14 @@ class A3CLearner(A3CSingleProcess):
         self.loss_counter = 0
 
     def _reset_rollout(self):       # for storing the experiences collected through one rollout
-        self.rollout = AugmentedExperience(state0 = [],
-                                           action = [],
-                                           reward = [],
-                                           state1 = [],
-                                           terminal1 = [],
-                                           policy_vb = [],
-                                           sigmoid_vb = [],
-                                           value0_vb = [])
+        self.rollout = A3C_Experience(state0 = [],
+                                      action = [],
+                                      reward = [],
+                                      state1 = [],
+                                      terminal1 = [],
+                                      policy_vb = [],
+                                      sigmoid_vb = [],
+                                      value0_vb = [])
 
     def _get_valueT_vb(self):
         if self.rollout.terminal1[-1]:  # for terminal sT
@@ -185,6 +185,11 @@ class A3CLearner(A3CSingleProcess):
         self.master.optimizer.step()
         self.train_step += 1
         self.master.train_step.value += 1
+
+        # adjust learning rate if enabled
+        if self.master.lr_decay:
+            self.master.lr_adjusted.value = max(self.master.lr * (self.master.steps - self.master.train_step.value) / self.master.steps, 1e-32)
+            adjust_learning_rate(self.master.optimizer, self.master.lr_adjusted.value)
 
         # log training stats
         self.p_loss_avg   += policy_loss_vb.data.numpy()
@@ -441,6 +446,7 @@ class A3CEvaluator(A3CSingleProcess):
             self.win_repisodes_solved = self.master.vis.scatter(X=np.array(self.repisodes_solved_log), env=self.master.refs, win=self.win_repisodes_solved, opts=dict(title="repisodes_solved"))
         # logging
         self.master.logger.warning("Reporting       @ Step: " + str(eval_at_train_step) + " | Elapsed Time: " + str(time.time() - self.start_time))
+        self.master.logger.warning("Iteration: {}; lr: {}".format(eval_at_train_step, self.master.lr_adjusted.value))
         self.master.logger.warning("Iteration: {}; p_loss_avg: {}".format(eval_at_train_step, self.p_loss_avg_log[-1][1]))
         self.master.logger.warning("Iteration: {}; v_loss_avg: {}".format(eval_at_train_step, self.v_loss_avg_log[-1][1]))
         self.master.logger.warning("Iteration: {}; loss_avg: {}".format(eval_at_train_step, self.loss_avg_log[-1][1]))

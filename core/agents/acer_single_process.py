@@ -9,18 +9,14 @@ import torch
 from torch.autograd import Variable
 import torch.nn.functional as F
 
-from utils.helpers import AugmentedExperience
+from utils.helpers import ACER_Experience
 from utils.distributions import sample_poisson
+from optims.helpers import adjust_learning_rate
 from core.agent_single_process import AgentSingleProcess
 
 class ACERSingleProcess(AgentSingleProcess):
     def __init__(self, master, process_id=0):
         super(ACERSingleProcess, self).__init__(master, process_id)
-
-        # NOTE: diff from pure on-policy methods like a3c, acer is capable of
-        # NOTE: off-policy learning and can make use of replay buffer
-        self.memory = self.master.memory_prototype(capacity = self.master.memory_params.memory_size // self.master.num_processes,
-                                                   max_episode_length = self.master.early_stop)
 
         # lstm hidden states
         if self.master.enable_lstm:
@@ -96,19 +92,24 @@ class ACERSingleProcess(AgentSingleProcess):
                         action = p_vb.multinomial().data[0][0]
                     else:
                         action = p_vb.max(1)[1].data.squeeze().numpy()[0]
-                    return action, p_vb, q_vb, v_vb
+                    return action, p_vb, q_vb, v_vb, avg_p_vb
                 else:           # learn from the sampled replays
                     p_vb, q_vb, v_vb, self.off_policy_lstm_hidden_vb   = self.model(state_vb, self.off_policy_lstm_hidden_vb)
                     avg_p_vb, _, _, self.off_policy_avg_lstm_hidden_vb = self.master.avg_model(state_vb, self.off_policy_avg_lstm_hidden_vb)
                     # TODO: do we also need to get an action for the off-policy case? I think so, then the p_vb would be a batch
-                    return _, p_vb, q_vb, v_vb
+                    return _, p_vb, q_vb, v_vb, avg_p_vb
             else:
                 pass
 
 class ACERLearner(ACERSingleProcess):
     def __init__(self, master, process_id=0):
-        master.logger.warning("<===================================> ACER-Learner #" + str(process_id) + " {Env & Model}")
+        master.logger.warning("<===================================> ACER-Learner #" + str(process_id) + " {Env & Model & Memory}")
         super(ACERLearner, self).__init__(master, process_id)
+
+        # NOTE: diff from pure on-policy methods like a3c, acer is capable of
+        # NOTE: off-policy learning and can make use of replay buffer
+        self.memory = self.master.memory_prototype(capacity = self.master.memory_params.memory_size // self.master.num_processes,
+                                                   max_episode_length = self.master.early_stop)
 
         # learning algorithm    # TODO: adjust learning to each process maybe ???
         self.optimizer = self.master.optim(self.model.parameters(), lr = self.master.lr)
@@ -139,25 +140,66 @@ class ACERLearner(ACERSingleProcess):
         self.loss_counter = 0
 
     def _reset_rollout(self):       # for storing the experiences collected through one rollout
-        self.rollout = AugmentedExperience(state0 = [],
-                                           action = [],
-                                           reward = [],
-                                           state1 = [],
-                                           terminal1 = [],
-                                           policy_vb = [],
-                                           sigmoid_vb = [],
-                                           value0_vb = [])  # NOTE: here we store q instead of v
+        self.rollout = ACER_Experience(state0 = [],
+                                       action = [],
+                                       reward = [],
+                                       state1 = [],
+                                       terminal1 = [],
+                                       policy_vb = [],
+                                       q0_vb = [],
+                                       value0_vb = [],
+                                       avg_policy_vb = [])
 
     def _backward(self):
+        # preparation
+        rollout_steps = len(self.rollout.reward)
+        policy_vb = self.rollout.policy_vb
+        if self.master.enable_continuous:
+            pass
+        else:
+            action_batch_vb = Variable(torch.from_numpy(np.array(self.rollout.action)).long())
+            if self.master.use_cuda:
+                action_batch_vb = action_batch_vb.cuda()
+
+        # compute loss
+        for i in reversed(range(rollout_steps)):
+            pass
+
+        # # Break graph for last values calculated (used for targets, not directly as model outputs)
+        # if done:
+        #     # Qret = 0 for terminal s
+        #     Qret = Variable(torch.zeros(1, 1))
+        #
+        #     if not args.on_policy:
+        #         # Save terminal state for offline training
+        #         memory.append(state, None, None, None)
+        # else:
+        #     # Qret = V(s_i; theta) for non-terminal s
+        #     _, _, Qret, _ = model(Variable(state), (hx, cx))
+        #     Qret = Qret.detach()
+        #
+        # # Train the network on-policy
+        # _train(args, T, model, shared_model, shared_average_model, optimiser, policies, Qs, Vs, actions, rewards, Qret, average_policies)
+
+        # compute loss
         # loss_vb = Variable(torch.zeros(1))
         # # TODO:
         # loss_vb.backward()
         # torch.nn.utils.clip_grad_norm(self.model.parameters(), self.master.clip_grad)
         #
-        # self._ensure_global_grads()
-        # self.master.optimizer.step()
+        self._ensure_global_grads()
+        self.master.optimizer.step()
         self.train_step += 1
         self.master.train_step.value += 1
+
+        # adjust learning rate if enabled
+        if self.master.lr_decay:
+            self.master.lr_adjusted.value = max(self.master.lr * (self.master.steps - self.master.train_step.value) / self.master.steps, 1e-32)
+            adjust_learning_rate(self.master.optimizer, self.master.lr_adjusted.value)
+
+        # # update master.avg_model
+        # for shared_param, shared_average_param in zip(shared_model.parameters(), shared_average_model.parameters()):
+        #     shared_average_param = args.trust_region_decay * shared_average_param + (1 - args.trust_region_decay) * shared_param
 
         # # log training stats
         # self.p_loss_avg   += policy_loss_vb.data.numpy()
@@ -166,7 +208,7 @@ class ACERLearner(ACERSingleProcess):
         # self.loss_counter += 1
 
     # NOTE: get action from current model, execute in env
-    # NOTE: then get AugmentedExperience to calculate stats for backward
+    # NOTE: then get ACER_Experience to calculate stats for backward
     # NOTE: push them into replay buffer in the format of {s,a,r,s1,t1,p}
     def _on_policy_rollout(self, episode_steps, episode_reward):
         # reset rollout experiences
@@ -185,12 +227,9 @@ class ACERLearner(ACERSingleProcess):
             self.rollout.state0.append(self.experience.state1)
             # then get the action to take from rollout.state0 (experience.state1)
             if self.master.enable_continuous:
-                # action, p_vb, sig_vb, v_vb = self._forward(self._preprocessState(self.experience.state1))
-                # self.rollout.sigmoid_vb.append(sig_vb)
-                # TODO:
                 pass
             else:
-                action, p_vb, q_vb, v_vb = self._forward(self._preprocessState(self.experience.state1))
+                action, p_vb, q_vb, v_vb, avg_p_vb = self._forward(self._preprocessState(self.experience.state1), on_policy=True)
             # then execute action in env to get a new experience.state1 -> rollout.state1
             self.experience = self.env.step(action)
             # push experience into rollout
@@ -199,7 +238,21 @@ class ACERLearner(ACERSingleProcess):
             self.rollout.state1.append(self.experience.state1)
             self.rollout.terminal1.append(self.experience.terminal1)
             self.rollout.policy_vb.append(p_vb)
-            self.rollout.value0_vb.append(q_vb) # NOTE: here we store q instead of v
+            self.rollout.q0_vb.append(q_vb)
+            self.rollout.value0_vb.append(v_vb)
+            self.rollout.avg_policy_vb.append(avg_p_vb)
+            # also push into replay buffer if off-policy learning is enabled
+            if self.master.replay_ratio > 0:
+                if self.rollout.terminal1[-1]:
+                    self.memory.append(self.rollout.state0[-1],
+                                       None,
+                                       None,
+                                       None)
+                else:
+                    self.memory.append(self.rollout.state0[-1],
+                                       self.rollout.action[-1],
+                                       self.rollout.reward[-1],
+                                       self.rollout.policy_vb[-1].data) # NOTE: no graphs needed
 
             episode_steps += 1
             episode_reward += self.experience.reward
@@ -210,12 +263,10 @@ class ACERLearner(ACERSingleProcess):
             if self.master.train_step.value >= self.master.steps:
                 break
 
-        # then after forward also need to push into replay buffer
-
         return episode_steps, episode_reward
 
     # NOTE: sample from replay buffer for a bunch of trajectories
-    # NOTE: then rollout on them to get AugmentedExperience to get stats for backward
+    # NOTE: then fake rollout on them to get ACER_Experience to get stats for backward
     def _off_policy_rollout(self):
         # reset rollout experiences
         self._reset_rollout()
@@ -236,23 +287,11 @@ class ACERLearner(ACERSingleProcess):
         episode_reward = None
         should_start_new = True
         while self.master.train_step.value < self.master.steps:
+            # NOTE: on-policy learning  # NOTE: procedure same as a3c, outs differ a bit
             # sync in every step
             self._sync_local_with_global()
             self.optimizer.zero_grad()
 
-            # NOTE: off-policy learning
-            # perfrom some off-policy training once got enough experience
-            if self.master.replay_ratio > 0:# TODO: comment off this part #and self.memory.len >= self.master.learn_start:
-                # sample a number of off-policy episodes based on the replay ratio
-                for _ in range(sample_poisson(self.master.replay_ratio)):
-                    self._reset_off_policy_lstm_hidden_vb()
-                    self._off_policy_rollout()
-                    # calculate loss
-                    self._backward()    # NOTE: only train_step will increment inside _backward
-                    self.off_policy_train_step += 1
-                    self.master.off_policy_train_step.value += 1
-
-            # NOTE: on-policy learning
             # start of a new episode
             if should_start_new:
                 episode_steps = 0
@@ -284,6 +323,22 @@ class ACERLearner(ACERSingleProcess):
             self._backward()    # NOTE: only train_step will increment inside _backward
             self.on_policy_train_step += 1
             self.master.on_policy_train_step.value += 1
+
+            # NOTE: off-policy learning
+            # perfrom some off-policy training once got enough experience
+            if self.master.replay_ratio > 0 and len(self.memory) >= self.master.learn_start:
+                # sample a number of off-policy episodes based on the replay ratio
+                for _ in range(sample_poisson(self.master.replay_ratio)):
+                    # sync in every step
+                    self._sync_local_with_global()  # TODO: don't know if this is necessary here
+                    self.optimizer.zero_grad()
+
+                    self._reset_off_policy_lstm_hidden_vb()
+                    self._off_policy_rollout()  # fake rollout, just to collect net outs from sampled trajectories
+                    # calculate loss
+                    self._backward()    # NOTE: only train_step will increment inside _backward
+                    self.off_policy_train_step += 1
+                    self.master.off_policy_train_step.value += 1
 
             # copy local training stats to global at prog_freq, and clear up local stats
             if time.time() - self.last_prog >= self.master.prog_freq:
@@ -397,6 +452,7 @@ class ACEREvaluator(ACERSingleProcess):
             self.win_repisodes_solved = self.master.vis.scatter(X=np.array(self.repisodes_solved_log), env=self.master.refs, win=self.win_repisodes_solved, opts=dict(title="repisodes_solved"))
         # logging
         self.master.logger.warning("Reporting       @ Step: " + str(eval_at_train_step) + " | Elapsed Time: " + str(time.time() - self.start_time))
+        self.master.logger.warning("Iteration: {}; lr: {}".format(eval_at_train_step, self.master.lr_adjusted.value))
         self.master.logger.warning("Iteration: {}; on_policy_steps: {}".format(eval_at_train_step, eval_at_on_policy_train_step))
         self.master.logger.warning("Iteration: {}; off_policy_steps: {}".format(eval_at_train_step, eval_at_off_policy_train_step))
         self.master.logger.warning("Iteration: {}; p_loss_avg: {}".format(eval_at_train_step, self.p_loss_avg_log[-1][1]))

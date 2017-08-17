@@ -50,6 +50,7 @@ class Agent(object):
         self.gamma = args.gamma
         self.clip_grad = args.clip_grad
         self.lr = args.lr
+        self.lr_decay = args.lr_decay
         self.weight_decay = args.weight_decay
         self.eval_freq = args.eval_freq
         self.eval_steps = args.eval_steps

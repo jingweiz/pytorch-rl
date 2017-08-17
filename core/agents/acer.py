@@ -25,20 +25,21 @@ class ACERAgent(Agent):
         self.model.share_memory()           # NOTE
 
         # learning algorithm # TODO: could also linearly anneal learning rate
-        self.optimizer = self.optim(self.model.parameters(), lr = self.lr)
+        self.optimizer    = self.optim(self.model.parameters(), lr = self.lr)
         self.optimizer.share_memory()       # NOTE
+        self.lr_adjusted  = mp.Value('d', self.lr) # adjusted lr
 
         # global shared average model: for 1st order trpo policy update
-        self.avg_model = self.model_prototype(self.model_params)
+        self.avg_model    = self.model_prototype(self.model_params)
         self.avg_model.load_state_dict(self.model.state_dict())
-        self.avg_model.share_memory()   # NOTE
+        self.avg_model.share_memory()       # NOTE
         for param in self.avg_model.parameters(): param.requires_grad = False
 
         # global counters
         self.frame_step   = mp.Value('l', 0) # global frame step counter
         self.train_step   = mp.Value('l', 0) # global train step counter
-        self.on_policy_train_step   = mp.Value('l', 0) # global on-policy  train step counter
-        self.off_policy_train_step  = mp.Value('l', 0) # global off-policy train step counter
+        self.on_policy_train_step  = mp.Value('l', 0) # global on-policy  train step counter
+        self.off_policy_train_step = mp.Value('l', 0) # global off-policy train step counter
         # global training stats
         self.p_loss_avg   = mp.Value('d', 0.) # global policy loss
         self.v_loss_avg   = mp.Value('d', 0.) # global value loss

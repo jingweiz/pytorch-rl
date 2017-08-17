@@ -24,9 +24,10 @@ class A3CAgent(Agent):
         self._load_model(self.model_file)   # load pretrained model if provided
         self.model.share_memory()           # NOTE
 
-        # learning algorithm # TODO: could also linearly anneal learning rate
-        self.optimizer = self.optim(self.model.parameters(), lr = self.lr)
+        # learning algorithm
+        self.optimizer    = self.optim(self.model.parameters(), lr = self.lr)
         self.optimizer.share_memory()       # NOTE
+        self.lr_adjusted  = mp.Value('d', self.lr) # adjusted lr
 
         # global counters
         self.frame_step   = mp.Value('l', 0) # global frame step counter

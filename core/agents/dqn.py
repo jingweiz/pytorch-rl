@@ -7,6 +7,7 @@ import time
 import torch
 from torch.autograd import Variable
 
+from optims.helpers import adjust_learning_rate
 from core.agent import Agent
 
 class DQNAgent(Agent):
@@ -210,6 +211,11 @@ class DQNAgent(Agent):
             # Perform the update
             self.optimizer.step()
 
+        # adjust learning rate if enabled
+        if self.lr_decay:
+            self.lr_adjusted = max(self.lr * (self.steps - self.step) / self.steps, 1e-32)
+            adjust_learning_rate(self.optimizer, self.lr_adjusted)
+
         if self.target_model_update >= 1 and self.step % self.target_model_update == 0:
             self._update_target_model_hard()    # Hard update every `target_model_update` steps.
         if self.target_model_update < 1.:       # TODO: have not tested
@@ -224,6 +230,7 @@ class DQNAgent(Agent):
         self.eps = self.eps_start
         # self.optimizer = self.optim(self.model.parameters(), lr=self.lr, alpha=0.95, eps=0.01, weight_decay=self.weight_decay)  # RMSprop
         self.optimizer = self.optim(self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay)    # Adam
+        self.lr_adjusted = self.lr
 
         self.logger.warning("<===================================> Training ...")
         self.training = True
@@ -297,6 +304,7 @@ class DQNAgent(Agent):
             # report training stats
             if self.step % self.prog_freq == 0:
                 self.logger.warning("Reporting       @ Step: " + str(self.step) + " | Elapsed Time: " + str(time.time() - self.start_time))
+                self.logger.warning("Training Stats:   lr:               {}".format(self.lr_adjusted))
                 self.logger.warning("Training Stats:   epsilon:          {}".format(self.eps))
                 self.logger.warning("Training Stats:   total_reward:     {}".format(total_reward))
                 self.logger.warning("Training Stats:   avg_reward:       {}".format(total_reward/nepisodes if nepisodes > 0 else 0.))

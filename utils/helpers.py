@@ -25,10 +25,11 @@ def loggerConfig(log_file, verbose=2):
 # yields `reward` and results in `state1`, which might be `terminal`.
 # NOTE: used as the return format for Env(), and as the format to push into replay memory for off-policy methods (DQN)
 # NOTE: when return from Env(), state0 is always None
-Experience          = namedtuple('Experience',          'state0, action, reward, state1, terminal1')
+Experience      = namedtuple('Experience',      'state0, action, reward, state1, terminal1')
 # NOTE: used for on-policy methods for collect experiences over a rollout of an episode
 # NOTE: policy_vb & value0_vb for storing output Variables along a rollout # NOTE: they should not be detached from the graph!
-AugmentedExperience = namedtuple('AugmentedExperience', 'state0, action, reward, state1, terminal1, policy_vb, sigmoid_vb, value0_vb')
+A3C_Experience  = namedtuple('A3C_Experience',  'state0, action, reward, state1, terminal1, policy_vb, sigmoid_vb, value0_vb')
+ACER_Experience = namedtuple('ACER_Experience', 'state0, action, reward, state1, terminal1, policy_vb, q0_vb,      value0_vb, avg_policy_vb')
 
 # NOTE: used for on-policy methods for collect experiences over a rollout of an episode
 # NOTE: policy_vb & value0_vb for storing output Variables along a rollout # NOTE: they should not be detached from the graph!
