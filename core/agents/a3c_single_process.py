@@ -84,9 +84,6 @@ class A3CLearner(A3CSingleProcess):
         master.logger.warning("<===================================> A3C-Learner #" + str(process_id) + " {Env & Model}")
         super(A3CLearner, self).__init__(master, process_id)
 
-        # learning algorithm    # TODO: adjust learning to each process maybe ???
-        self.optimizer = self.master.optim(self.model.parameters(), lr = self.master.lr, weight_decay=self.master.weight_decay)
-
         self._reset_rollout()
 
         self.training = True    # choose actions by polinomial
@@ -251,7 +248,7 @@ class A3CLearner(A3CSingleProcess):
         while self.master.train_step.value < self.master.steps:
             # sync in every step
             self._sync_local_with_global()
-            self.optimizer.zero_grad()
+            self.model.zero_grad()
 
             # start of a new episode
             if should_start_new:

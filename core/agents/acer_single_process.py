@@ -6,7 +6,7 @@ import random
 import time
 import math
 import torch
-from torch.autograd import Variable
+from torch.autograd import Variable, grad, backward
 import torch.nn.functional as F
 
 from utils.helpers import ACER_Experience
@@ -111,9 +111,6 @@ class ACERLearner(ACERSingleProcess):
         self.memory = self.master.memory_prototype(capacity = self.master.memory_params.memory_size // self.master.num_processes,
                                                    max_episode_length = self.master.early_stop)
 
-        # learning algorithm    # TODO: adjust learning to each process maybe ???
-        self.optimizer = self.master.optim(self.model.parameters(), lr = self.master.lr)
-
         self._reset_rollout()
 
         self.training = True    # choose actions by polinomial
@@ -148,38 +145,102 @@ class ACERLearner(ACERSingleProcess):
                                        policy_vb = [],
                                        q0_vb = [],
                                        value0_vb = [],
-                                       avg_policy_vb = [])
+                                       detached_avg_policy_vb = [],
+                                       detached_old_policy_vb = [])
 
-    def _backward(self):
+    def _get_QretT_vb(self, on_policy=True):
+        if self.rollout.terminal1[-1]:  # for terminal sT:     Q_ret = 0
+            if on_policy:
+                QretT_vb = Variable(torch.zeros(1, 1))
+            else:
+                # TODO: check here again: for off-policy should be batch_size
+                QretT_vb = Variable(torch.zeros(self.master.batch_size, 1))
+        else:                           # for non-terminal sT: Qret = V(s_i; /theta)
+            sT_vb = self._preprocessState(self.rollout.state1[-1], True)        # bootstrap from last state
+            if self.master.enable_continuous:
+                pass
+            else:
+                # NOTE: here get the output v instead of q to be as Q_ret
+                if self.master.enable_lstm:
+                    if on_policy:
+                        _, _, QretT_vb, _ = self.model(sT_vb, self.on_policy_lstm_hidden_vb)    # NOTE: only doing inference here
+                    else:
+                        _, _, QretT_vb, _ = self.model(sT_vb, self.off_policy_lstm_hidden_vb)   # NOTE: only doing inference here
+                else:
+                    _, _, QretT_vb = self.model(sT_vb)  # NOTE: only doing inference here
+            QretT_vb = Variable(QretT_vb.data)
+
+        return QretT_vb
+
+    def _1st_order_trpo(self, detached_policy_loss_vb, policy_vb, detached_policy_vb, detached_avg_policy_vb):
+        # KL divergence k = \delta_{\phi_{\theta}} DKL[ \pi(|\phi_{\theta_a}) || \pi{|\phi_{\theta}}]
+        kl_div_vb = F.kl_div(detached_policy_vb.log(), detached_avg_policy_vb, size_average=False)
+        k_vb = grad(outputs=kl_div_vb,               inputs=detached_policy_vb, retain_graph=False, only_inputs=True)[0]
+        g_vb = grad(outputs=detached_policy_loss_vb, inputs=detached_policy_vb, retain_graph=False, only_inputs=True)[0]
+
+        kg_dot_vb = torch.mm(k_vb, torch.t(g_vb))
+        kk_dot_vb = torch.mm(k_vb, torch.t(k_vb))
+
+        z_star_vb = g_vb - ((kg_dot_vb - self.master.clip_1st_order_trpo) / kk_dot_vb).clamp(min=0) * k_vb
+        backward(variables=policy_vb, grad_variables=z_star_vb, retain_graph=True)
+        print("_1st_order_trpo done ===================")
+
+    def _backward(self, on_policy=True):
         # preparation
         rollout_steps = len(self.rollout.reward)
-        policy_vb = self.rollout.policy_vb
         if self.master.enable_continuous:
             pass
         else:
-            action_batch_vb = Variable(torch.from_numpy(np.array(self.rollout.action)).long())
+            detached_policy_vb = [Variable(self.rollout.policy_vb[i].data, requires_grad=True) for i in range(rollout_steps)] # [rollout_steps x batch_size x action_dim]
+            action_batch_vb    = Variable(torch.from_numpy(np.array(self.rollout.action)).view(rollout_steps, -1, 1).long())  # [rollout_steps x batch_size x 1]
             if self.master.use_cuda:
                 action_batch_vb = action_batch_vb.cuda()
+            detached_policy_log_vb = [torch.log(detached_policy_vb[i]) for i in range(rollout_steps)]
+            # detached_entropy_vb    = [- (detached_policy_log_vb[i] * detached_policy_vb[i]).sum(1) for i in range(rollout_steps)] # TODO: check if should keepdim
+            detached_policy_log_vb = [detached_policy_log_vb[i].gather(1, action_batch_vb[i]) for i in range(rollout_steps) ]
+        QretT_vb = self._get_QretT_vb(on_policy)
 
         # compute loss
+        policy_loss_vb = Variable(torch.zeros(1, 1))
+        value_loss_vb  = Variable(torch.zeros(1, 1))
         for i in reversed(range(rollout_steps)):
-            pass
+            # 1. importance sampling weights: /rho = /pi(|s_i) / /mu(|s_i)
+            if on_policy:   # 1 for on-policy
+                rho_vb = Variable(torch.ones(1, self.master.action_dim))
+                rho_vb[0,0] = 50#0.5#Variable(torch.ones(1, self.master.action_dim))
+            else:
+                pass
 
-        # # Break graph for last values calculated (used for targets, not directly as model outputs)
-        # if done:
-        #     # Qret = 0 for terminal s
-        #     Qret = Variable(torch.zeros(1, 1))
-        #
-        #     if not args.on_policy:
-        #         # Save terminal state for offline training
-        #         memory.append(state, None, None, None)
-        # else:
-        #     # Qret = V(s_i; theta) for non-terminal s
-        #     _, _, Qret, _ = model(Variable(state), (hx, cx))
-        #     Qret = Qret.detach()
-        #
-        # # Train the network on-policy
-        # _train(args, T, model, shared_model, shared_average_model, optimiser, policies, Qs, Vs, actions, rewards, Qret, average_policies)
+            # Q_ret = r_i + /gamma * Q_ret
+            QretT_vb = self.master.gamma * QretT_vb + self.rollout.reward[i]
+            # A = Q_ret - V(s_i; /theta)
+            advantage_vb = QretT_vb - self.rollout.value0_vb[i]
+            # g = min(c, /rho_a_i) * /delta_theta * log(/pi(a_i|s_i; /theta)) * A
+            detached_policy_loss_vb = - (rho_vb.gather(1, action_batch_vb[i]).clamp(max=self.master.clip_trace) * detached_policy_log_vb[i] * advantage_vb.detach()).mean(0)
+
+            if self.master.enable_bias_correction:# and not on_policy:   # NOTE: have to perform bais correction when off-policy
+                # g = g + /sum_a [1 - c / /rho_a]_+ /pi(a|s_i; /theta) * /delta_theta * log(/pi(a|s_i; /theta)) * (Q(s_i, a; /theta) - V(s_i; /theta)
+                bias_correction_coefficient_vb = (1 - self.master.clip_trace / rho_vb).clamp(min=0) * detached_policy_vb[i]
+                detached_policy_loss_vb -= (bias_correction_coefficient_vb * detached_policy_vb[i].log() * (self.rollout.q0_vb[i].detach() - self.rollout.value0_vb[i].detach())).sum(1, keepdim=True).mean(0)
+
+            if self.master.enable_1st_order_trpo:
+                # policy update d_/theta = d_/theta + /partical/theta / /partical/theta * z*
+                policy_loss_vb += self._1st_order_trpo(detached_policy_loss_vb, self.rollout.policy_vb[i], detached_policy_vb[i], self.rollout.detached_avg_policy_vb[i])
+
+            single_step_policy_loss = -(rho.gather(1, actions[i]).clamp(max=args.trace_max) * log_prob * A.detach()).mean(0)  # Average over batch
+            # Off-policy bias correction
+            if off_policy:
+                # g = g + /sum_a [1 - c / /rho_a]_+ /pi(a|s_i; /theta) * /delta_theta * log(/pi(a|s_i; /theta)) * (Q(s_i, a; theta) - V(s_i; theta)
+                bias_weight = (1 - args.trace_max / rho).clamp(min=0) * policies[i]
+                single_step_policy_loss -= (bias_weight * policies[i].log() * (Qs[i].detach() - Vs[i].expand_as(Qs[i]).detach())).sum(1).mean(0)
+            if args.trust_region:
+                # Policy update d_/theta = d_/theta + /partical/theta / /partical/theta * z*
+                policy_loss += _trust_region_loss(model, policies[i], average_policies[i], single_step_policy_loss, args.trust_region_threshold)
+            else:
+                # Policy update d_/theta = d_/theta + partical_/theta / /partical_/theta * g
+                policy_loss += single_step_policy_loss
+            # Entropy regularisation d_/theta = d_/theta + /beta * /delta H(/pi(s_i; /theta))
+            policy_loss -= args.entropy_weight * -(policies[i].log() * policies[i]).sum(1).mean(0)  # Sum over probabilities, average over batch
 
         # compute loss
         # loss_vb = Variable(torch.zeros(1))
@@ -240,7 +301,7 @@ class ACERLearner(ACERSingleProcess):
             self.rollout.policy_vb.append(p_vb)
             self.rollout.q0_vb.append(q_vb)
             self.rollout.value0_vb.append(v_vb)
-            self.rollout.avg_policy_vb.append(avg_p_vb)
+            self.rollout.detached_avg_policy_vb.append(avg_p_vb.detach()) # NOTE
             # also push into replay buffer if off-policy learning is enabled
             if self.master.replay_ratio > 0:
                 if self.rollout.terminal1[-1]:
@@ -252,7 +313,7 @@ class ACERLearner(ACERSingleProcess):
                     self.memory.append(self.rollout.state0[-1],
                                        self.rollout.action[-1],
                                        self.rollout.reward[-1],
-                                       self.rollout.policy_vb[-1].data) # NOTE: no graphs needed
+                                       self.rollout.policy_vb[-1].detach())  # NOTE: no graphs needed
 
             episode_steps += 1
             episode_reward += self.experience.reward
@@ -290,7 +351,7 @@ class ACERLearner(ACERSingleProcess):
             # NOTE: on-policy learning  # NOTE: procedure same as a3c, outs differ a bit
             # sync in every step
             self._sync_local_with_global()
-            self.optimizer.zero_grad()
+            self.model.zero_grad()
 
             # start of a new episode
             if should_start_new:
@@ -320,23 +381,23 @@ class ACERLearner(ACERSingleProcess):
                     nepisodes_solved += 1
 
             # calculate loss
-            self._backward()    # NOTE: only train_step will increment inside _backward
+            self._backward(on_policy=True)  # NOTE: only train_step will increment inside _backward
             self.on_policy_train_step += 1
             self.master.on_policy_train_step.value += 1
 
             # NOTE: off-policy learning
             # perfrom some off-policy training once got enough experience
-            if self.master.replay_ratio > 0 and len(self.memory) >= self.master.learn_start:
+            if self.master.replay_ratio > 0 and len(self.memory) >= self.master.replay_start:
                 # sample a number of off-policy episodes based on the replay ratio
                 for _ in range(sample_poisson(self.master.replay_ratio)):
                     # sync in every step
                     self._sync_local_with_global()  # TODO: don't know if this is necessary here
-                    self.optimizer.zero_grad()
+                    self.model.zero_grad()
 
                     self._reset_off_policy_lstm_hidden_vb()
                     self._off_policy_rollout()  # fake rollout, just to collect net outs from sampled trajectories
                     # calculate loss
-                    self._backward()    # NOTE: only train_step will increment inside _backward
+                    self._backward(on_policy=False) # NOTE: only train_step will increment inside _backward
                     self.off_policy_train_step += 1
                     self.master.off_policy_train_step.value += 1
 

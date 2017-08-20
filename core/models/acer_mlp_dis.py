@@ -48,8 +48,8 @@ class ACERMlpDisModel(Model):
             x, c = self.lstm(x, lstm_hidden_vb)
         policy = self.actor_3(self.actor_2(x)).clamp(max=1-1e-20)
         q = self.critic_2(x)
-        v = (q * policy).sum(1)     # expectation of Q under /pi
+        v = (q * policy).sum(1, keepdim=True)   # expectation of Q under /pi
         if self.enable_lstm:
             return policy, q, v, (x, c)
         else:
-            return policy, q, v 
+            return policy, q, v

@@ -29,7 +29,7 @@ Experience      = namedtuple('Experience',      'state0, action, reward, state1,
 # NOTE: used for on-policy methods for collect experiences over a rollout of an episode
 # NOTE: policy_vb & value0_vb for storing output Variables along a rollout # NOTE: they should not be detached from the graph!
 A3C_Experience  = namedtuple('A3C_Experience',  'state0, action, reward, state1, terminal1, policy_vb, sigmoid_vb, value0_vb')
-ACER_Experience = namedtuple('ACER_Experience', 'state0, action, reward, state1, terminal1, policy_vb, q0_vb,      value0_vb, avg_policy_vb')
+ACER_Experience = namedtuple('ACER_Experience', 'state0, action, reward, state1, terminal1, policy_vb, q0_vb,      value0_vb, detached_avg_policy_vb, detached_old_policy_vb')
 
 # NOTE: used for on-policy methods for collect experiences over a rollout of an episode
 # NOTE: policy_vb & value0_vb for storing output Variables along a rollout # NOTE: they should not be detached from the graph!

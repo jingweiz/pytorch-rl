@@ -81,14 +81,19 @@ class Agent(object):
             self.tau = args.tau
             self.beta = args.beta
         elif args.agent_type == "acer":
+            self.enable_bias_correction = args.enable_bias_correction
+            self.enable_1st_order_trpo = args.enable_1st_order_trpo
+
             self.enable_lstm = args.enable_lstm
             self.enable_continuous = args.enable_continuous
             self.num_processes = args.num_processes
 
             self.replay_ratio = args.replay_ratio
-            self.learn_start = args.learn_start
+            self.replay_start = args.replay_start
             self.batch_size = args.batch_size
             self.valid_size = args.valid_size
+            self.clip_trace = args.clip_trace
+            self.clip_1st_order_trpo = args.clip_1st_order_trpo
 
             self.rollout_steps = args.rollout_steps
             self.tau = args.tau

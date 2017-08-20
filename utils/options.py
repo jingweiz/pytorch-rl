@@ -30,8 +30,8 @@ class Params(object):   # NOTE: shared across all modules
         self.verbose     = 0            # 0(warning) | 1(info) | 2(debug)
 
         # training signature
-        self.machine     = "daim"    # "machine_id"
-        self.timestamp   = "17081300"   # "yymmdd##"
+        self.machine     = "aisdaim"    # "machine_id"
+        self.timestamp   = "17082000"   # "yymmdd##"
         # training configuration
         self.mode        = 1            # 1(train) | 2(test model_file)
         self.config      = 7
@@ -71,6 +71,9 @@ class Params(object):   # NOTE: shared across all modules
             self.use_cuda           = False
             self.dtype              = torch.FloatTensor
         elif self.agent_type == "acer":
+            self.enable_bias_correction = True
+            self.enable_1st_order_trpo  = True
+
             self.enable_lstm        = True
             if "-con" in self.model_type:
                 self.enable_continuous  = True
@@ -179,6 +182,7 @@ class AgentParams(Params):  # hyperparameters for drl agents
             self.gamma               = 0.99
             self.clip_grad           = 1.#np.inf
             self.lr                  = 0.0001
+            self.lr_decay            = False
             self.weight_decay        = 0.
             self.eval_freq           = 2500     # NOTE: here means every this many steps
             self.eval_steps          = 1000
@@ -203,6 +207,7 @@ class AgentParams(Params):  # hyperparameters for drl agents
             self.gamma               = 0.99
             self.clip_grad           = 40.#np.inf
             self.lr                  = 0.00025
+            self.lr_decay            = False
             self.weight_decay        = 0.
             self.eval_freq           = 250000#12500    # NOTE: here means every this many steps
             self.eval_steps          = 125000#2500
@@ -226,6 +231,7 @@ class AgentParams(Params):  # hyperparameters for drl agents
             self.gamma               = 0.99
             self.clip_grad           = 40.
             self.lr                  = 0.0001
+            self.lr_decay            = False
             self.weight_decay        = 1e-4 if self.enable_continuous else 0.
             self.eval_freq           = 60       # NOTE: here means every this many seconds
             self.eval_steps          = 3000
@@ -241,15 +247,19 @@ class AgentParams(Params):  # hyperparameters for drl agents
             self.gamma               = 0.99
             self.clip_grad           = 40.
             self.lr                  = 0.0001
+            self.lr_decay            = True
             self.weight_decay        = 0.
             self.eval_freq           = 60       # NOTE: here means every this many seconds
             self.eval_steps          = 3000
             self.prog_freq           = self.eval_freq
             self.test_nepisodes      = 10
 
-            self.learn_start         = 20000    # start off-policy learning after this many steps
+            self.replay_ratio        = 0        # NOTE: 0: purely on-policy; otherwise mix with off-policy
+            self.replay_start        = 20000    # start off-policy learning after this many steps
             self.batch_size          = 16
             self.valid_size          = 500
+            self.clip_trace          = 10#np.inf# c in retrace
+            self.clip_1st_order_trpo = 1
 
             self.rollout_steps       = 20       # max look-ahead steps in a single rollout
             self.tau                 = 1.
