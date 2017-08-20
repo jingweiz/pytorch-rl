@@ -175,15 +175,20 @@ class ACERLearner(ACERSingleProcess):
     def _1st_order_trpo(self, detached_policy_loss_vb, policy_vb, detached_policy_vb, detached_avg_policy_vb):
         # KL divergence k = \delta_{\phi_{\theta}} DKL[ \pi(|\phi_{\theta_a}) || \pi{|\phi_{\theta}}]
         kl_div_vb = F.kl_div(detached_policy_vb.log(), detached_avg_policy_vb, size_average=False)
+        # NOTE: k & g are wll w.r.t. the network output, which is policy_vb
+        # NOTE: gradient from this part does not need to be propagated back into the model
+        # NOTE: that's why we are only using detached policies here
         k_vb = grad(outputs=kl_div_vb,               inputs=detached_policy_vb, retain_graph=False, only_inputs=True)[0]
         g_vb = grad(outputs=detached_policy_loss_vb, inputs=detached_policy_vb, retain_graph=False, only_inputs=True)[0]
 
         kg_dot_vb = torch.mm(k_vb, torch.t(g_vb))
         kk_dot_vb = torch.mm(k_vb, torch.t(k_vb))
-
         z_star_vb = g_vb - ((kg_dot_vb - self.master.clip_1st_order_trpo) / kk_dot_vb).clamp(min=0) * k_vb
+
+        # NOTE: we still need to backprop the value loss afterwards, so the graph needs to be retained here
+        self.model.zero_grad()
         backward(variables=policy_vb, grad_variables=z_star_vb, retain_graph=True)
-        print("_1st_order_trpo done ===================")
+        # NOTE: must not call zero_grad before backprop value loss
 
     def _backward(self, on_policy=True):
         # preparation
