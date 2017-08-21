@@ -263,7 +263,6 @@ class ACERLearner(ACERSingleProcess):
             # NOTE: here we can backprop both losses at once, but to make consistent
             # NOTE: and avoid the need to keep track of another set of undetached policy loss
             # NOTE: we also decouple the backprop of the policy loss into two stages
-            # 1.2 backprop from the network output to the whole model
             backward(variables=self.rollout.policy_vb, grad_variables=policy_grad_vb, retain_graph=True)
         # 2. backprop the value loss and entropy loss
         (value_loss_vb + self.master.beta * entropy_loss_vb).backward()
