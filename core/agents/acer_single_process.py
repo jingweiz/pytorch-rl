@@ -168,6 +168,9 @@ class ACERLearner(ACERSingleProcess):
                         _, _, QretT_vb, _ = self.model(sT_vb, self.off_policy_lstm_hidden_vb)   # NOTE: only doing inference here
                 else:
                     _, _, QretT_vb = self.model(sT_vb)  # NOTE: only doing inference here
+            # NOTE: here QretT_vb.volatile=True since sT_vb.volatile=True
+            # NOTE: if we use detach() here, it would remain volatile
+            # NOTE: then all the follow-up computations would only give volatile loss variables
             QretT_vb = Variable(QretT_vb.data)
 
         return QretT_vb
@@ -221,7 +224,7 @@ class ACERLearner(ACERSingleProcess):
             # 1. policy loss
             # importance sampling weights: /rho = /pi(|s_i) / /mu(|s_i)
             if on_policy:   # always 1 for on-policy
-                rho_vb = Variable(torch.ones(1, self.master.action_dim))
+                rho_vb = Variable(torch.ones(1, self.master.action_dim)) # TODO
             else:
                 rho_vb = self.rollout.policy_vb[i].detach() / self.rollout.detached_old_policy_vb[i]
 
@@ -333,7 +336,7 @@ class ACERLearner(ACERSingleProcess):
                     self.memory.append(self.rollout.state0[-1],
                                        self.rollout.action[-1],
                                        self.rollout.reward[-1],
-                                       self.rollout.policy_vb[-1].detach())  # NOTE: no graphs needed
+                                       self.rollout.policy_vb[-1].detach()) # NOTE: no graphs needed
 
             episode_steps += 1
             episode_reward += self.experience.reward
