@@ -203,8 +203,11 @@ class ACERLearner(ACERSingleProcess):
             # NOTE: into two parts when not using trpo policy update
             detached_policy_vb     = [Variable(self.rollout.policy_vb[i].data, requires_grad=True) for i in range(rollout_steps)] # [rollout_steps x batch_size x action_dim]
             detached_policy_log_vb = [torch.log(detached_policy_vb[i]) for i in range(rollout_steps)]
-            # detached_entropy_vb    = [- (detached_policy_log_vb[i] * detached_policy_vb[i]).sum(1) for i in range(rollout_steps)] # TODO: check if should keepdim
             detached_policy_log_vb = [detached_policy_log_vb[i].gather(1, action_batch_vb[i]) for i in range(rollout_steps) ]
+            # NOTE: entropy is using the undetached policies here, cos we
+            # NOTE: backprop entropy_loss the same way as value_loss at once in the end
+            # NOTE: not decoupled into two stages as the other parts of the policy gradient
+            entropy_vb = [- (self.rollout.policy_vb[i].log() * self.rollout.policy_vb[i]).sum(1, keepdim=True).mean(0) for i in range(rollout_steps)]
             if self.master.enable_1st_order_trpo:
                 z_star_vb = []
             else:
@@ -212,13 +215,15 @@ class ACERLearner(ACERSingleProcess):
         QretT_vb = self._get_QretT_vb(on_policy)
 
         # compute loss
-        value_loss_vb  = Variable(torch.zeros(1, 1), requires_grad=True)
+        entropy_loss_vb = 0.
+        value_loss_vb = 0.
         for i in reversed(range(rollout_steps)):
-            # 1. importance sampling weights: /rho = /pi(|s_i) / /mu(|s_i)
-            if on_policy:   # 1 for on-policy
+            # 1. policy loss
+            # importance sampling weights: /rho = /pi(|s_i) / /mu(|s_i)
+            if on_policy:   # always 1 for on-policy
                 rho_vb = Variable(torch.ones(1, self.master.action_dim))
             else:
-                pass
+                rho_vb = self.rollout.policy_vb[i].detach() / self.rollout.detached_old_policy_vb[i]
 
             # Q_ret = r_i + /gamma * Q_ret
             QretT_vb = self.master.gamma * QretT_vb + self.rollout.reward[i]
@@ -238,6 +243,16 @@ class ACERLearner(ACERSingleProcess):
             else:
                 policy_grad_vb.append(grad(outputs=detached_policy_loss_vb, inputs=detached_policy_vb[i], retain_graph=False, only_inputs=True)[0])
 
+            # entropy loss
+            entropy_loss_vb -= entropy_vb[i]
+
+            # 2. value loss
+            Q_vb = self.rollout.q0_vb[i].gather(1, action_batch_vb[i])
+            value_loss_vb += ((QretT_vb - Q_vb) ** 2 / 2).mean(0)
+            # we also need to update QretT_vb here
+            truncated_rho_vb = rho_vb.gather(1, action_batch_vb[i]).clamp(max=1)
+            QretT_vb = truncated_rho_vb * (QretT_vb - Q_vb.detach()) + self.rollout.value0_vb[i].detach()
+
         # now we have all the losses ready, we backprop
         self.model.zero_grad()
         # 1.2 backprop the policy loss from the network output to the whole model
@@ -250,8 +265,8 @@ class ACERLearner(ACERSingleProcess):
             # NOTE: we also decouple the backprop of the policy loss into two stages
             # 1.2 backprop from the network output to the whole model
             backward(variables=self.rollout.policy_vb, grad_variables=policy_grad_vb, retain_graph=True)
-        # 2. backprop the value loss
-        value_loss_vb.backward()
+        # 2. backprop the value loss and entropy loss
+        (value_loss_vb + self.master.beta * entropy_loss_vb).backward()
         torch.nn.utils.clip_grad_norm(self.model.parameters(), self.master.clip_grad)
 
         self._ensure_global_grads()
