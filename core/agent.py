@@ -94,6 +94,7 @@ class Agent(object):
             self.valid_size = args.valid_size
             self.clip_trace = args.clip_trace
             self.clip_1st_order_trpo = args.clip_1st_order_trpo
+            self.avg_model_decay = args.avg_model_decay
 
             self.rollout_steps = args.rollout_steps
             self.tau = args.tau

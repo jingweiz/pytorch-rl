@@ -20,7 +20,7 @@ class ACERMlpDisModel(Model):
 
         # lstm
         if self.enable_lstm:
-            self.lstm  = nn.LSTMCell(self.hidden_dim, self.hidden_dim, 1)
+            self.lstm  = nn.LSTMCell(self.hidden_dim, self.hidden_dim)
 
         # 1. actor:  /pi_{/theta}(a_t | x_t)
         self.actor_2 = nn.Linear(self.hidden_dim, self.output_dims)
@@ -46,7 +46,7 @@ class ACERMlpDisModel(Model):
         # x = x.view(-1, 3*3*32)
         if self.enable_lstm:
             x, c = self.lstm(x, lstm_hidden_vb)
-        policy = self.actor_3(self.actor_2(x)).clamp(max=1-1e-20)
+        policy = self.actor_3(self.actor_2(x)).clamp(max=1-1e-6, min=1e-6) # TODO: max might not be necessary
         q = self.critic_2(x)
         v = (q * policy).sum(1, keepdim=True)   # expectation of Q under /pi
         if self.enable_lstm:

@@ -35,8 +35,8 @@ class A3CMlpConModel(Model):
 
         # lstm
         if self.enable_lstm:
-            self.lstm  = nn.LSTMCell(self.hidden_dim, self.hidden_dim, 1)
-            self.lstm_v  = nn.LSTMCell(self.hidden_dim, self.hidden_dim, 1)
+            self.lstm  = nn.LSTMCell(self.hidden_dim, self.hidden_dim)
+            self.lstm_v  = nn.LSTMCell(self.hidden_dim, self.hidden_dim)
 
         # 1. policy output
         self.policy_5   = nn.Linear(self.hidden_dim, self.output_dims)

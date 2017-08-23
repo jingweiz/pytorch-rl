@@ -24,7 +24,7 @@ class A3CCnnDisModel(Model):
         self.conv4 = nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1)
         self.rl4   = nn.ReLU()
         if self.enable_lstm:
-            self.lstm  = nn.LSTMCell(3*3*32, self.hidden_dim, 1)
+            self.lstm  = nn.LSTMCell(3*3*32, self.hidden_dim)
         # 1. policy output
         self.policy_5 = nn.Linear(self.hidden_dim, self.output_dims)
         self.policy_6 = nn.Softmax()

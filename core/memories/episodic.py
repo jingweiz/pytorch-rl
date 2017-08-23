@@ -1,8 +1,10 @@
-# -*- coding: utf-8 -*-
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 import random
 from collections import deque, namedtuple
 
-Transition = namedtuple('Transition', ('state', 'action', 'reward', 'policy'))
+from utils.helpers import ACER_Off_Policy_Experience
 
 # TODO: should inherite from Memory to make it consistent
 class EpisodicMemory():
@@ -13,8 +15,8 @@ class EpisodicMemory():
         self.memory.append([])  # List for first episode
         self.position = 0
 
-    def append(self, state, action, reward, policy):
-        self.memory[self.position].append(Transition(state, action, reward, policy))  # Save s_i, a_i, r_i+1, µ(·|s_i)
+    def append(self, state0, action, reward, detached_old_policy_vb):
+        self.memory[self.position].append(ACER_Off_Policy_Experience(state0, action, reward, detached_old_policy_vb))  # Save s_i, a_i, r_i+1, /mu(|s_i)
         # Terminal states are saved with actions as None, so switch to next episode
         if action is None:
             self.memory.append([])

@@ -257,9 +257,10 @@ class AgentParams(Params):  # hyperparameters for drl agents
             self.replay_ratio        = 0        # NOTE: 0: purely on-policy; otherwise mix with off-policy
             self.replay_start        = 20000    # start off-policy learning after this many steps
             self.batch_size          = 16
-            self.valid_size          = 500
+            self.valid_size          = 500      # TODO: should do the same thing as in dqn
             self.clip_trace          = 10#np.inf# c in retrace
             self.clip_1st_order_trpo = 1
+            self.avg_model_decay     = 0.99
 
             self.rollout_steps       = 20       # max look-ahead steps in a single rollout
             self.tau                 = 1.
