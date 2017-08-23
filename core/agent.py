@@ -73,6 +73,8 @@ class Agent(object):
             self.memory_interval = args.memory_interval
             self.train_interval = args.train_interval
         elif args.agent_type == "a3c":
+            self.enable_log_at_train_step = args.enable_log_at_train_step
+
             self.enable_lstm = args.enable_lstm
             self.enable_continuous = args.enable_continuous
             self.num_processes = args.num_processes
@@ -83,6 +85,7 @@ class Agent(object):
         elif args.agent_type == "acer":
             self.enable_bias_correction = args.enable_bias_correction
             self.enable_1st_order_trpo = args.enable_1st_order_trpo
+            self.enable_log_at_train_step = args.enable_log_at_train_step
 
             self.enable_lstm = args.enable_lstm
             self.enable_continuous = args.enable_continuous

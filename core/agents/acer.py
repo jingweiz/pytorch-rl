@@ -41,17 +41,17 @@ class ACERAgent(Agent):
         self.on_policy_train_step  = mp.Value('l', 0) # global on-policy  train step counter
         self.off_policy_train_step = mp.Value('l', 0) # global off-policy train step counter
         # global training stats
-        self.p_loss_avg   = mp.Value('d', 0.) # global policy loss
-        self.v_loss_avg   = mp.Value('d', 0.) # global value loss
-        self.loss_avg     = mp.Value('d', 0.) # global loss
-        self.loss_counter = mp.Value('l', 0)  # storing this many losses
+        self.p_loss_avg       = mp.Value('d', 0.) # global policy loss
+        self.v_loss_avg       = mp.Value('d', 0.) # global value loss
+        self.entropy_loss_avg = mp.Value('d', 0.) # global value loss
+        self.loss_counter     = mp.Value('l', 0)  # storing this many losses
         self._reset_training_loggings()
 
     def _reset_training_loggings(self):
-        self.p_loss_avg.value   = 0.
-        self.v_loss_avg.value   = 0.
-        self.loss_avg.value     = 0.
-        self.loss_counter.value = 0
+        self.p_loss_avg.value       = 0.
+        self.v_loss_avg.value       = 0.
+        self.entropy_loss_avg.value = 0.
+        self.loss_counter.value     = 0
 
     def fit_model(self):
         self.jobs = []

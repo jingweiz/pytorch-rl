@@ -418,18 +418,42 @@ class A3CEvaluator(A3CSingleProcess):
         v_loss_avg = self.master.v_loss_avg.value / loss_counter if loss_counter > 0 else 0.
         loss_avg = self.master.loss_avg.value / loss_counter if loss_counter > 0 else 0.
         self.master._reset_training_loggings()
-        self.p_loss_avg_log.append([eval_at_train_step, p_loss_avg])
-        self.v_loss_avg_log.append([eval_at_train_step, v_loss_avg])
-        self.loss_avg_log.append([eval_at_train_step, loss_avg])
-        self.entropy_avg_log.append([eval_at_train_step, np.mean(np.asarray(eval_entropy_log))])
-        self.v_avg_log.append([eval_at_train_step, np.mean(np.asarray(eval_v_log))])
-        self.steps_avg_log.append([eval_at_train_step, np.mean(np.asarray(eval_episode_steps_log))])
-        self.steps_std_log.append([eval_at_train_step, np.std(np.asarray(eval_episode_steps_log))]); del eval_episode_steps_log
-        self.reward_avg_log.append([eval_at_train_step, np.mean(np.asarray(eval_episode_reward_log))])
-        self.reward_std_log.append([eval_at_train_step, np.std(np.asarray(eval_episode_reward_log))]); del eval_episode_reward_log
-        self.nepisodes_log.append([eval_at_train_step, eval_nepisodes])
-        self.nepisodes_solved_log.append([eval_at_train_step, eval_nepisodes_solved])
-        self.repisodes_solved_log.append([eval_at_train_step, (eval_nepisodes_solved/eval_nepisodes) if eval_nepisodes > 0 else 0.])
+        def _log_at_step(eval_at_step):
+            self.p_loss_avg_log.append([eval_at_step, p_loss_avg])
+            self.v_loss_avg_log.append([eval_at_step, v_loss_avg])
+            self.loss_avg_log.append([eval_at_step, loss_avg])
+            self.entropy_avg_log.append([eval_at_step, np.mean(np.asarray(eval_entropy_log))])
+            self.v_avg_log.append([eval_at_step, np.mean(np.asarray(eval_v_log))])
+            self.steps_avg_log.append([eval_at_step, np.mean(np.asarray(eval_episode_steps_log))])
+            self.steps_std_log.append([eval_at_step, np.std(np.asarray(eval_episode_steps_log))])
+            self.reward_avg_log.append([eval_at_step, np.mean(np.asarray(eval_episode_reward_log))])
+            self.reward_std_log.append([eval_at_step, np.std(np.asarray(eval_episode_reward_log))])
+            self.nepisodes_log.append([eval_at_step, eval_nepisodes])
+            self.nepisodes_solved_log.append([eval_at_step, eval_nepisodes_solved])
+            self.repisodes_solved_log.append([eval_at_step, (eval_nepisodes_solved/eval_nepisodes) if eval_nepisodes > 0 else 0.])
+            # logging
+            self.master.logger.warning("Reporting       @ Step: " + str(eval_at_step) + " | Elapsed Time: " + str(time.time() - self.start_time))
+            self.master.logger.warning("Iteration: {}; lr: {}".format(eval_at_step, self.master.lr_adjusted.value))
+            self.master.logger.warning("Iteration: {}; p_loss_avg: {}".format(eval_at_step, self.p_loss_avg_log[-1][1]))
+            self.master.logger.warning("Iteration: {}; v_loss_avg: {}".format(eval_at_step, self.v_loss_avg_log[-1][1]))
+            self.master.logger.warning("Iteration: {}; loss_avg: {}".format(eval_at_step, self.loss_avg_log[-1][1]))
+            self.master._reset_training_loggings()
+            self.master.logger.warning("Evaluating      @ Step: " + str(eval_at_train_step) + " | (" + str(eval_at_frame_step) + " frames)...")
+            self.master.logger.warning("Evaluation        Took: " + str(time.time() - self.last_eval))
+            self.master.logger.warning("Iteration: {}; entropy_avg: {}".format(eval_at_step, self.entropy_avg_log[-1][1]))
+            self.master.logger.warning("Iteration: {}; v_avg: {}".format(eval_at_step, self.v_avg_log[-1][1]))
+            self.master.logger.warning("Iteration: {}; steps_avg: {}".format(eval_at_step, self.steps_avg_log[-1][1]))
+            self.master.logger.warning("Iteration: {}; steps_std: {}".format(eval_at_step, self.steps_std_log[-1][1]))
+            self.master.logger.warning("Iteration: {}; reward_avg: {}".format(eval_at_step, self.reward_avg_log[-1][1]))
+            self.master.logger.warning("Iteration: {}; reward_std: {}".format(eval_at_step, self.reward_std_log[-1][1]))
+            self.master.logger.warning("Iteration: {}; nepisodes: {}".format(eval_at_step, self.nepisodes_log[-1][1]))
+            self.master.logger.warning("Iteration: {}; nepisodes_solved: {}".format(eval_at_step, self.nepisodes_solved_log[-1][1]))
+            self.master.logger.warning("Iteration: {}; repisodes_solved: {}".format(eval_at_step, self.repisodes_solved_log[-1][1]))
+        if self.master.enable_log_at_train_step:
+            _log_at_step(eval_at_train_step)
+        else:
+            _log_at_step(eval_at_frame_step)
+
         # plotting
         if self.master.visualize:
             self.win_p_loss_avg = self.master.vis.scatter(X=np.array(self.p_loss_avg_log), env=self.master.refs, win=self.win_p_loss_avg, opts=dict(title="p_loss_avg"))
@@ -444,24 +468,6 @@ class A3CEvaluator(A3CSingleProcess):
             self.win_nepisodes = self.master.vis.scatter(X=np.array(self.nepisodes_log), env=self.master.refs, win=self.win_nepisodes, opts=dict(title="nepisodes"))
             self.win_nepisodes_solved = self.master.vis.scatter(X=np.array(self.nepisodes_solved_log), env=self.master.refs, win=self.win_nepisodes_solved, opts=dict(title="nepisodes_solved"))
             self.win_repisodes_solved = self.master.vis.scatter(X=np.array(self.repisodes_solved_log), env=self.master.refs, win=self.win_repisodes_solved, opts=dict(title="repisodes_solved"))
-        # logging
-        self.master.logger.warning("Reporting       @ Step: " + str(eval_at_train_step) + " | Elapsed Time: " + str(time.time() - self.start_time))
-        self.master.logger.warning("Iteration: {}; lr: {}".format(eval_at_train_step, self.master.lr_adjusted.value))
-        self.master.logger.warning("Iteration: {}; p_loss_avg: {}".format(eval_at_train_step, self.p_loss_avg_log[-1][1]))
-        self.master.logger.warning("Iteration: {}; v_loss_avg: {}".format(eval_at_train_step, self.v_loss_avg_log[-1][1]))
-        self.master.logger.warning("Iteration: {}; loss_avg: {}".format(eval_at_train_step, self.loss_avg_log[-1][1]))
-        self.master._reset_training_loggings()
-        self.master.logger.warning("Evaluating      @ Step: " + str(eval_at_train_step) + " | (" + str(eval_at_frame_step) + " frames)...")
-        self.master.logger.warning("Evaluation        Took: " + str(time.time() - self.last_eval))
-        self.master.logger.warning("Iteration: {}; entropy_avg: {}".format(eval_at_train_step, self.entropy_avg_log[-1][1]))
-        self.master.logger.warning("Iteration: {}; v_avg: {}".format(eval_at_train_step, self.v_avg_log[-1][1]))
-        self.master.logger.warning("Iteration: {}; steps_avg: {}".format(eval_at_train_step, self.steps_avg_log[-1][1]))
-        self.master.logger.warning("Iteration: {}; steps_std: {}".format(eval_at_train_step, self.steps_std_log[-1][1]))
-        self.master.logger.warning("Iteration: {}; reward_avg: {}".format(eval_at_train_step, self.reward_avg_log[-1][1]))
-        self.master.logger.warning("Iteration: {}; reward_std: {}".format(eval_at_train_step, self.reward_std_log[-1][1]))
-        self.master.logger.warning("Iteration: {}; nepisodes: {}".format(eval_at_train_step, self.nepisodes_log[-1][1]))
-        self.master.logger.warning("Iteration: {}; nepisodes_solved: {}".format(eval_at_train_step, self.nepisodes_solved_log[-1][1]))
-        self.master.logger.warning("Iteration: {}; repisodes_solved: {}".format(eval_at_train_step, self.repisodes_solved_log[-1][1]))
         self.last_eval = time.time()
 
         # save model
