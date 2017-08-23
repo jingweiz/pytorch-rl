@@ -73,9 +73,10 @@ This repo currently contains the following agents:
 - Double DQN [[3]](http://arxiv.org/abs/1509.06461)
 - Dueling network DQN (Dueling DQN) [[4]](https://arxiv.org/abs/1511.06581)
 - Asynchronous Advantage Actor-Critic (A3C) (w/ both discrete/continuous action space support) [[5]](https://arxiv.org/abs/1602.01783), [[6]](https://arxiv.org/abs/1506.02438)
+- Sample Efficient Actor-Critic with Experience Replay (ACER) (currently w/ discrete action space support (Truncated Importance Sampling, 1st Order TRPO)) [[7]](https://arxiv.org/abs/1611.01224), [[8]](https://arxiv.org/abs/1606.02647)
 
 Work in progress:
-- Sample Efficient Actor-Critic with Experience Replay (ACER) (currently w/ discrete action space support (Truncated Importance Sampling, 1st Order TRPO)) [[7]](https://arxiv.org/abs/1611.01224), [[8]](https://arxiv.org/abs/1606.02647)
+- Testing ACER
 
 Future Plans:
 - Deep Deterministic Policy Gradient (DDPG) [[9]](http://arxiv.org/abs/1509.02971), [[10]](http://proceedings.mlr.press/v32/silver14.pdf)
