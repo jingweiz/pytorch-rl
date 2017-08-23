@@ -229,8 +229,6 @@ class ACERLearner(ACERSingleProcess):
                 policy_vb                   = self.rollout.policy_vb
                 detached_splitted_policy_vb = None
                 detached_policy_vb          = [Variable(self.rollout.policy_vb[i].data, requires_grad=True) for i in range(rollout_steps)] # [rollout_steps x batch_size x action_dim]
-                detached_policy_log_vb      = [torch.log(detached_policy_vb[i]) for i in range(rollout_steps)]
-                detached_policy_log_vb      = [detached_policy_log_vb[i].gather(1, action_batch_vb[i]) for i in range(rollout_steps) ]
             else: # NOTE: here rollout.policy_vb is already split by trajectories, we can safely detach and not causing trouble for feed in tuples into grad later
                 # NOTE:           rollout.policy_vb: undetached, splitted -> what we stored during the fake _off_policy_rollout
                 # NOTE:                   policy_vb: undetached, batch    -> 1. entropy, cos grad from entropy need to flow back through the whole graph 2. the backward of 2nd stage should be computed on this
@@ -239,8 +237,8 @@ class ACERLearner(ACERSingleProcess):
                 policy_vb                   = unsplitted_policy_vb
                 detached_splitted_policy_vb = [[Variable(self.rollout.policy_vb[i][j].data, requires_grad=True) for j in range(self.master.batch_size)] for i in range(rollout_steps)] # (rollout_steps x (batch_size x [1 x action_dim]))
                 detached_policy_vb          = [torch.cat(detached_splitted_policy_vb[i]) for i in range(rollout_steps)] # detached   # we cat the splitted tuples for each timestep across trajectories to ease batch computation
-                detached_policy_log_vb      = [torch.log(detached_policy_vb[i]) for i in range(rollout_steps)]
-                detached_policy_log_vb      = [detached_policy_log_vb[i].gather(1, action_batch_vb[i]) for i in range(rollout_steps) ]
+            detached_policy_log_vb = [torch.log(detached_policy_vb[i]) for i in range(rollout_steps)]
+            detached_policy_log_vb = [detached_policy_log_vb[i].gather(1, action_batch_vb[i]) for i in range(rollout_steps) ]
             # NOTE: entropy is using the undetached policies here, cos we
             # NOTE: backprop entropy_loss the same way as value_loss at once in the end
             # NOTE: not decoupled into two stages as the other parts of the policy gradient
@@ -253,7 +251,7 @@ class ACERLearner(ACERSingleProcess):
 
         # compute loss
         entropy_loss_vb = 0.
-        value_loss_vb = 0.
+        value_loss_vb   = 0.
         for i in reversed(range(rollout_steps)):
             # 1. policy loss
             if on_policy:

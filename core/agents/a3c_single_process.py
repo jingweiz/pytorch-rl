@@ -160,8 +160,8 @@ class A3CLearner(A3CSingleProcess):
         gae_ts        = torch.zeros(1, 1)
 
         # compute loss
-        policy_loss_vb = Variable(torch.zeros(1, 1))
-        value_loss_vb  = Variable(torch.zeros(1, 1))
+        policy_loss_vb = 0.
+        value_loss_vb  = 0.
         for i in reversed(range(rollout_steps)):
             valueT_vb     = self.master.gamma * valueT_vb + self.rollout.reward[i]
             advantage_vb  = valueT_vb - self.rollout.value0_vb[i]
@@ -173,9 +173,9 @@ class A3CLearner(A3CSingleProcess):
             if self.master.enable_continuous:
                 _log_prob = self._normal(action_batch_vb[i], policy_vb[i], sigma_vb[i])
                 _entropy = 0.5 * ((sigma_vb[i] * 2 * self.pi_vb.expand_as(sigma_vb[i])).log() + 1)
-                policy_loss_vb = policy_loss_vb - (_log_prob * Variable(gae_ts).expand_as(_log_prob)).sum() - self.master.beta * _entropy.sum()
+                policy_loss_vb -= (_log_prob * Variable(gae_ts).expand_as(_log_prob)).sum() + self.master.beta * _entropy.sum()
             else:
-                policy_loss_vb = policy_loss_vb - policy_log_vb[i] * Variable(gae_ts) - self.master.beta * entropy_vb[i]
+                policy_loss_vb -= policy_log_vb[i] * Variable(gae_ts) + self.master.beta * entropy_vb[i]
 
         loss_vb = policy_loss_vb + 0.5 * value_loss_vb
         loss_vb.backward()
