@@ -206,7 +206,8 @@ class ACERLearner(ACERSingleProcess):
             global_avg_param = self.master.avg_model_decay       * global_avg_param + \
                                (1 - self.master.avg_model_decay) * global_param
 
-    def _backward(self, on_policy=True):
+    def _backward(self, unsplitted_policy_vb=None):
+        on_policy = unsplitted_policy_vb is None
         # preparation
         rollout_steps = len(self.rollout.reward)
         if self.master.enable_continuous:
@@ -225,29 +226,25 @@ class ACERLearner(ACERSingleProcess):
             # NOTE: requires_grad of detached_policy_vb must be True, otherwise grad will not be able to
             # NOTE: flow between the two stagets of backprop
             if on_policy:
-                policy_vb                   = self.rollout.policy_vb # just to keep the backward calls signature consistent
+                policy_vb                   = self.rollout.policy_vb
                 detached_splitted_policy_vb = None
                 detached_policy_vb          = [Variable(self.rollout.policy_vb[i].data, requires_grad=True) for i in range(rollout_steps)] # [rollout_steps x batch_size x action_dim]
                 detached_policy_log_vb      = [torch.log(detached_policy_vb[i]) for i in range(rollout_steps)]
                 detached_policy_log_vb      = [detached_policy_log_vb[i].gather(1, action_batch_vb[i]) for i in range(rollout_steps) ]
-                # NOTE: entropy is using the undetached policies here, cos we
-                # NOTE: backprop entropy_loss the same way as value_loss at once in the end
-                # NOTE: not decoupled into two stages as the other parts of the policy gradient
-                entropy_vb                  = [- (self.rollout.policy_vb[i].log() * self.rollout.policy_vb[i]).sum(1, keepdim=True).mean(0) for i in range(rollout_steps)]
             else: # NOTE: here rollout.policy_vb is already split by trajectories, we can safely detach and not causing trouble for feed in tuples into grad later
                 # NOTE:           rollout.policy_vb: undetached, splitted -> what we stored during the fake _off_policy_rollout
-                # NOTE:                   policy_vb: undetached, batch    -> just to ease getting entropy, cos grad from entropy need to flow back through the whole graph
+                # NOTE:                   policy_vb: undetached, batch    -> 1. entropy, cos grad from entropy need to flow back through the whole graph 2. the backward of 2nd stage should be computed on this
                 # NOTE: detached_splitted_policy_vb:   detached, splitted -> used as inputs in grad in _1st_order_trpo, cos this part of grad is not backproped into the model
                 # NOTE:          detached_policy_vb:   detached, batch    -> to ease batch computation on the detached_policy_vb
-                policy_vb                   = [torch.cat(self.rollout.policy_vb[i]) for i in range(rollout_steps)]      # undetached # we cat the splitted tuples for each timestep across trajectories to ease batch computation (only for entropy currently)
+                policy_vb                   = unsplitted_policy_vb
                 detached_splitted_policy_vb = [[Variable(self.rollout.policy_vb[i][j].data, requires_grad=True) for j in range(self.master.batch_size)] for i in range(rollout_steps)] # (rollout_steps x (batch_size x [1 x action_dim]))
                 detached_policy_vb          = [torch.cat(detached_splitted_policy_vb[i]) for i in range(rollout_steps)] # detached   # we cat the splitted tuples for each timestep across trajectories to ease batch computation
                 detached_policy_log_vb      = [torch.log(detached_policy_vb[i]) for i in range(rollout_steps)]
                 detached_policy_log_vb      = [detached_policy_log_vb[i].gather(1, action_batch_vb[i]) for i in range(rollout_steps) ]
-                # NOTE: entropy is using the undetached policies here, cos we
-                # NOTE: backprop entropy_loss the same way as value_loss at once in the end
-                # NOTE: not decoupled into two stages as the other parts of the policy gradient
-                entropy_vb                  = [- (policy_vb[i].log() * policy_vb[i]).sum(1, keepdim=True).mean(0) for i in range(rollout_steps)]
+            # NOTE: entropy is using the undetached policies here, cos we
+            # NOTE: backprop entropy_loss the same way as value_loss at once in the end
+            # NOTE: not decoupled into two stages as the other parts of the policy gradient
+            entropy_vb = [- (policy_vb[i].log() * policy_vb[i]).sum(1, keepdim=True).mean(0) for i in range(rollout_steps)]
             if self.master.enable_1st_order_trpo:
                 z_star_vb = []
             else:
@@ -399,6 +396,8 @@ class ACERLearner(ACERSingleProcess):
 
         # first sample trajectories
         trajectories = self.memory.sample_batch(self.master.batch_size, maxlen=self.master.rollout_steps)
+        # NOTE: we also store another set of undetached unsplitted policy_vb here to prepare for backward
+        unsplitted_policy_vb = []
 
         # then fake the on-policy forward
         for t in range(len(trajectories) - 1):
@@ -427,10 +426,11 @@ class ACERLearner(ACERSingleProcess):
             self.rollout.value0_vb.append(v_vb)
             self.rollout.detached_avg_policy_vb.append(avg_p_vb.detach()) # NOTE
             self.rollout.detached_old_policy_vb.append(detached_old_policy_vb)
+            unsplitted_policy_vb.append(p_vb)
 
         # also need to log some training stats here maybe
 
-        return
+        return unsplitted_policy_vb
 
     def run(self):
         # make sure processes are not completely synced by sleeping a bit
@@ -475,7 +475,7 @@ class ACERLearner(ACERSingleProcess):
                     nepisodes_solved += 1
 
             # calculate loss
-            self._backward(on_policy=True)  # NOTE: only train_step will increment inside _backward
+            self._backward() # NOTE: only train_step will increment inside _backward
             self.on_policy_train_step += 1
             self.master.on_policy_train_step.value += 1
 
@@ -492,9 +492,9 @@ class ACERLearner(ACERSingleProcess):
                     if self.master.enable_lstm:
                         # NOTE: clear hidden state at the beginning of each episode
                         self._reset_off_policy_lstm_hidden_vb()
-                    self._off_policy_rollout()  # fake rollout, just to collect net outs from sampled trajectories
+                    unsplitted_policy_vb = self._off_policy_rollout() # fake rollout, just to collect net outs from sampled trajectories
                     # calculate loss
-                    self._backward(on_policy=False) # NOTE: only train_step will increment inside _backward
+                    self._backward(unsplitted_policy_vb) # NOTE: only train_step will increment inside _backward
                     self.off_policy_train_step += 1
                     self.master.off_policy_train_step.value += 1
 
