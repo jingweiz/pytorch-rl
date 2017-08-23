@@ -15,14 +15,14 @@ from optims.sharedRMSprop import SharedRMSprop
 
 CONFIGS = [
 # agent_type, env_type,    game,                       model_type,     memory_type
-[ "empty",    "gym",       "CartPole-v0",              "empty",        "none"      ],  # 0
+[ "empty",    "atari",     "SpaceInvaders-v0",         "empty",        "none"      ],  # 0
 [ "dqn",      "gym",       "CartPole-v0",              "dqn-mlp",      "sequential"],  # 1
 [ "dqn",      "atari-ram", "Pong-ram-v0",              "dqn-mlp",      "sequential"],  # 2
 [ "dqn",      "atari",     "PongDeterministic-v4",     "dqn-cnn",      "sequential"],  # 3
 [ "dqn",      "atari",     "BreakoutDeterministic-v4", "dqn-cnn",      "sequential"],  # 4
 [ "a3c",      "atari",     "PongDeterministic-v4",     "a3c-cnn-dis",  "none"      ],  # 5
 [ "a3c",      "gym",       "InvertedPendulum-v1",      "a3c-mlp-con",  "none"      ],  # 6
-[ "acer",     "gym",       "CartPole-v1",              "acer-mlp-dis", "episodic"  ]   # 7  # NOTE: acer under testing
+[ "acer",     "atari",     "SpaceInvaders-v0",         "acer-cnn-dis", "episodic"  ]   # 7  # NOTE: acer under testing
 ]
 
 class Params(object):   # NOTE: shared across all modules
@@ -274,6 +274,7 @@ class AgentParams(Params):  # hyperparameters for drl agents
             self.gamma               = 0.99
             self.clip_grad           = 1.#np.inf
             self.lr                  = 0.001
+            self.lr_decay            = False
             self.weight_decay        = 0.
             self.eval_freq           = 2500     # NOTE: here means every this many steps
             self.eval_steps          = 1000

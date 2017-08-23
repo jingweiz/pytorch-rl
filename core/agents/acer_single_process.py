@@ -72,9 +72,9 @@ class ACERSingleProcess(AgentSingleProcess):
         if isinstance(state, list):
             state_vb = []
             for i in range(len(state)):
-                state_vb.append(Variable(torch.from_numpy(state[i]).view(-1, self.master.state_shape).type(self.master.dtype), volatile=is_valotile))
+                state_vb.append(Variable(torch.from_numpy(state[i]).unsqueeze(0).type(self.master.dtype), volatile=is_valotile))
         else:
-            state_vb = Variable(torch.from_numpy(state).view(-1, self.master.state_shape).type(self.master.dtype), volatile=is_valotile)
+            state_vb = Variable(torch.from_numpy(state).unsqueeze(0).type(self.master.dtype), volatile=is_valotile)
         return state_vb
 
     def _forward(self, state_vb, on_policy=True):
