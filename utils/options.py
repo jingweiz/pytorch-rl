@@ -22,7 +22,7 @@ CONFIGS = [
 [ "dqn",      "atari",     "BreakoutDeterministic-v4", "dqn-cnn",      "sequential"],  # 4
 [ "a3c",      "atari",     "PongDeterministic-v4",     "a3c-cnn-dis",  "none"      ],  # 5
 [ "a3c",      "gym",       "InvertedPendulum-v1",      "a3c-mlp-con",  "none"      ],  # 6
-[ "acer",     "gym",       "CartPole-v1",              "acer-mlp-dis", "episodic"  ]   # 7  # NOTE: acer still under development, dont use this config
+[ "acer",     "gym",       "CartPole-v1",              "acer-mlp-dis", "episodic"  ]   # 7  # NOTE: acer under testing
 ]
 
 class Params(object):   # NOTE: shared across all modules
