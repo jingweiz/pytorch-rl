@@ -31,7 +31,7 @@ class Params(object):   # NOTE: shared across all modules
 
         # training signature
         self.machine     = "aisdaim"    # "machine_id"
-        self.timestamp   = "17082000"   # "yymmdd##"
+        self.timestamp   = "17082300"   # "yymmdd##"
         # training configuration
         self.mode        = 1            # 1(train) | 2(test model_file)
         self.config      = 7
@@ -58,6 +58,8 @@ class Params(object):   # NOTE: shared across all modules
             self.use_cuda           = torch.cuda.is_available()
             self.dtype              = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
         elif self.agent_type == "a3c":
+            self.enable_log_at_train_step = True # when False, x-axis would be frame_step instead of train_step
+
             self.enable_lstm        = True
             if "-con" in self.model_type:
                 self.enable_continuous  = True
@@ -71,8 +73,9 @@ class Params(object):   # NOTE: shared across all modules
             self.use_cuda           = False
             self.dtype              = torch.FloatTensor
         elif self.agent_type == "acer":
-            self.enable_bias_correction = True
-            self.enable_1st_order_trpo  = True
+            self.enable_bias_correction   = True
+            self.enable_1st_order_trpo    = True
+            self.enable_log_at_train_step = True # when False, x-axis would be frame_step instead of train_step
 
             self.enable_lstm        = True
             if "-con" in self.model_type:
@@ -254,7 +257,7 @@ class AgentParams(Params):  # hyperparameters for drl agents
             self.prog_freq           = self.eval_freq
             self.test_nepisodes      = 10
 
-            self.replay_ratio        = 0        # NOTE: 0: purely on-policy; otherwise mix with off-policy
+            self.replay_ratio        = 4        # NOTE: 0: purely on-policy; otherwise mix with off-policy
             self.replay_start        = 20000    # start off-policy learning after this many steps
             self.batch_size          = 16
             self.valid_size          = 500      # TODO: should do the same thing as in dqn

@@ -741,8 +741,54 @@ class ACERTester(ACERSingleProcess):
         test_episode_reward_log = []
         test_should_start_new = True
         while test_nepisodes < self.master.test_nepisodes:
-            # TODO:
-            test_nepisodes += 1
+            if test_should_start_new:   # start of a new episode
+                test_episode_steps = 0
+                test_episode_reward = 0.
+                # reset lstm_hidden_vb for new episode
+                if self.master.enable_lstm:
+                    # NOTE: clear hidden state at the beginning of each episode
+                    self._reset_on_policy_lstm_hidden_vb_episode(self.training)
+                # Obtain the initial observation by resetting the environment
+                self._reset_experience()
+                self.experience = self.env.reset()
+                assert self.experience.state1 is not None
+                if not self.training:
+                    if self.master.visualize: self.env.visual()
+                    if self.master.render: self.env.render()
+                # reset flag
+                test_should_start_new = False
+            if self.master.enable_lstm:
+                # NOTE: detach the previous hidden variable from the graph at the beginning of each step
+                # NOTE: not necessary here in testing but we do it anyways
+                self._reset_on_policy_lstm_hidden_vb_rollout()
+            # Run a single step
+            if self.master.enable_continuous:
+                pass
+            else:
+                test_action, p_vb, _, v_vb, _ = self._forward(self._preprocessState(self.experience.state1, True), on_policy=True)
+            self.experience = self.env.step(test_action)
+            if not self.training:
+                if self.master.visualize: self.env.visual()
+                if self.master.render: self.env.render()
+            if self.experience.terminal1 or \
+               self.master.early_stop and (test_episode_steps + 1) == self.master.early_stop:
+                test_should_start_new = True
+
+            test_episode_steps += 1
+            test_episode_reward += self.experience.reward
+            test_step += 1
+
+            if test_should_start_new:
+                test_nepisodes += 1
+                if self.experience.terminal1:
+                    test_nepisodes_solved += 1
+
+                # This episode is finished, report and reset
+                test_episode_steps_log.append([test_episode_steps])
+                test_episode_reward_log.append([test_episode_reward])
+                self._reset_experience()
+                test_episode_steps = None
+                test_episode_reward = None
 
         self.steps_avg_log.append([test_nepisodes, np.mean(np.asarray(test_episode_steps_log))])
         self.steps_std_log.append([test_nepisodes, np.std(np.asarray(test_episode_steps_log))]); del test_episode_steps_log
