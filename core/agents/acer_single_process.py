@@ -118,20 +118,20 @@ class ACERLearner(ACERSingleProcess):
         self.on_policy_train_step   = 0   # local on-policy  train step counter
         self.off_policy_train_step  = 0   # local off-policy train step counter
         # local training stats
-        self.p_loss_avg   = 0.  # global policy loss
-        self.v_loss_avg   = 0.  # global value loss
-        self.loss_avg     = 0.  # global value loss
-        self.loss_counter = 0   # storing this many losses
+        self.p_loss_avg       = 0.  # global policy loss
+        self.v_loss_avg       = 0.  # global value loss
+        self.entropy_loss_avg = 0.  # global entropy loss
+        self.loss_counter     = 0   # storing this many losses
         self._reset_training_loggings()
 
         # copy local training stats to global every prog_freq
         self.last_prog = time.time()
 
     def _reset_training_loggings(self):
-        self.p_loss_avg   = 0.
-        self.v_loss_avg   = 0.
-        self.loss_avg     = 0.
-        self.loss_counter = 0
+        self.p_loss_avg       = 0.
+        self.v_loss_avg       = 0.
+        self.entropy_loss_avg = 0.
+        self.loss_counter     = 0
 
     def _reset_rollout(self):       # for storing the experiences collected through one rollout
         self.rollout = ACER_On_Policy_Experience(state0 = [],
@@ -314,19 +314,22 @@ class ACERLearner(ACERSingleProcess):
         self.train_step += 1
         self.master.train_step.value += 1
 
+        # update master.avg_model
+        self._update_global_avg_model()
+
         # adjust learning rate if enabled
         if self.master.lr_decay:
             self.master.lr_adjusted.value = max(self.master.lr * (self.master.steps - self.master.train_step.value) / self.master.steps, 1e-32)
             adjust_learning_rate(self.master.optimizer, self.master.lr_adjusted.value)
 
-        # update master.avg_model
-        self._update_global_avg_model()
-
-        # # log training stats
-        # self.p_loss_avg   += policy_loss_vb.data.numpy()
-        # self.v_loss_avg   += value_loss_vb.data.numpy()
-        # self.loss_avg     += loss_vb.data.numpy()
-        # self.loss_counter += 1
+        # log training stats
+        if self.master.enable_1st_order_trpo:
+            self.p_loss_avg   += torch.cat(z_star_vb, 0).data.mean()
+        else:
+            self.p_loss_avg   += torch.cat(policy_grad_vb, 0).data.mean()
+        self.v_loss_avg       += value_loss_vb.data.numpy()
+        self.entropy_loss_avg += entropy_loss_vb.data.numpy()
+        self.loss_counter += 1
 
     # NOTE: get action from current model, execute in env
     # NOTE: then get ACER_On_Policy_Experience to calculate stats for backward
@@ -498,10 +501,10 @@ class ACERLearner(ACERSingleProcess):
 
             # copy local training stats to global at prog_freq, and clear up local stats
             if time.time() - self.last_prog >= self.master.prog_freq:
-                self.master.p_loss_avg.value   += self.p_loss_avg
-                self.master.v_loss_avg.value   += self.v_loss_avg
-                self.master.loss_avg.value     += self.loss_avg
-                self.master.loss_counter.value += self.loss_counter
+                self.master.p_loss_avg.value       += self.p_loss_avg
+                self.master.v_loss_avg.value       += self.v_loss_avg
+                self.master.entropy_loss_avg.value += self.entropy_loss_avg
+                self.master.loss_counter.value     += self.loss_counter
                 self._reset_training_loggings()
                 self.last_prog = time.time()
 
@@ -521,7 +524,7 @@ class ACEREvaluator(ACERSingleProcess):
         # training stats across all processes
         self.p_loss_avg_log = []
         self.v_loss_avg_log = []
-        self.loss_avg_log = []
+        self.entropy_loss_avg_log = []
         # evaluation stats
         self.entropy_avg_log = []
         self.v_avg_log = []
@@ -537,7 +540,7 @@ class ACEREvaluator(ACERSingleProcess):
             # training stats across all processes
             self.win_p_loss_avg = "win_p_loss_avg"
             self.win_v_loss_avg = "win_v_loss_avg"
-            self.win_loss_avg = "win_loss_avg"
+            self.win_entropy_loss_avg = "win_v_loss_avg"
             # evaluation stats
             self.win_entropy_avg = "win_entropy_avg"
             self.win_v_avg = "win_v_avg"
@@ -578,11 +581,11 @@ class ACEREvaluator(ACERSingleProcess):
         loss_counter = self.master.loss_counter.value
         p_loss_avg = self.master.p_loss_avg.value / loss_counter if loss_counter > 0 else 0.
         v_loss_avg = self.master.v_loss_avg.value / loss_counter if loss_counter > 0 else 0.
-        loss_avg = self.master.loss_avg.value / loss_counter if loss_counter > 0 else 0.
+        entropy_loss_avg = self.master.entropy_loss_avg.value / loss_counter if loss_counter > 0 else 0.
         self.master._reset_training_loggings()
         self.p_loss_avg_log.append([eval_at_train_step, p_loss_avg])
         self.v_loss_avg_log.append([eval_at_train_step, v_loss_avg])
-        self.loss_avg_log.append([eval_at_train_step, loss_avg])
+        self.entropy_loss_avg_log.append([eval_at_train_step, entropy_loss_avg])
         self.entropy_avg_log.append([eval_at_train_step, np.mean(np.asarray(eval_entropy_log))])
         self.v_avg_log.append([eval_at_train_step, np.mean(np.asarray(eval_v_log))])
         self.steps_avg_log.append([eval_at_train_step, np.mean(np.asarray(eval_episode_steps_log))])
@@ -596,7 +599,7 @@ class ACEREvaluator(ACERSingleProcess):
         if self.master.visualize:
             self.win_p_loss_avg = self.master.vis.scatter(X=np.array(self.p_loss_avg_log), env=self.master.refs, win=self.win_p_loss_avg, opts=dict(title="p_loss_avg"))
             self.win_v_loss_avg = self.master.vis.scatter(X=np.array(self.v_loss_avg_log), env=self.master.refs, win=self.win_v_loss_avg, opts=dict(title="v_loss_avg"))
-            self.win_loss_avg = self.master.vis.scatter(X=np.array(self.loss_avg_log), env=self.master.refs, win=self.win_loss_avg, opts=dict(title="loss_avg"))
+            self.win_entropy_loss_avg = self.master.vis.scatter(X=np.array(self.entropy_loss_avg_log), env=self.master.refs, win=self.win_entropy_loss_avg, opts=dict(title="entropy_loss_avg"))
             self.win_entropy_avg = self.master.vis.scatter(X=np.array(self.entropy_avg_log), env=self.master.refs, win=self.win_entropy_avg, opts=dict(title="entropy_avg"))
             self.win_v_avg = self.master.vis.scatter(X=np.array(self.v_avg_log), env=self.master.refs, win=self.win_v_avg, opts=dict(title="v_avg"))
             self.win_steps_avg = self.master.vis.scatter(X=np.array(self.steps_avg_log), env=self.master.refs, win=self.win_steps_avg, opts=dict(title="steps_avg"))
@@ -613,7 +616,7 @@ class ACEREvaluator(ACERSingleProcess):
         self.master.logger.warning("Iteration: {}; off_policy_steps: {}".format(eval_at_train_step, eval_at_off_policy_train_step))
         self.master.logger.warning("Iteration: {}; p_loss_avg: {}".format(eval_at_train_step, self.p_loss_avg_log[-1][1]))
         self.master.logger.warning("Iteration: {}; v_loss_avg: {}".format(eval_at_train_step, self.v_loss_avg_log[-1][1]))
-        self.master.logger.warning("Iteration: {}; loss_avg: {}".format(eval_at_train_step, self.loss_avg_log[-1][1]))
+        self.master.logger.warning("Iteration: {}; entropy_loss_avg: {}".format(eval_at_train_step, self.entropy_loss_avg_log[-1][1]))
         self.master._reset_training_loggings()
         self.master.logger.warning("Evaluating      @ Step: " + str(eval_at_train_step) + " | (" + str(eval_at_frame_step) + " frames)...")
         self.master.logger.warning("Evaluation        Took: " + str(time.time() - self.last_eval))
