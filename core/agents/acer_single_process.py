@@ -68,13 +68,19 @@ class ACERSingleProcess(AgentSingleProcess):
             self.off_policy_avg_lstm_hidden_vb = (Variable(torch.zeros(self.master.batch_size, self.master.hidden_dim).type(self.master.dtype)),
                                                   Variable(torch.zeros(self.master.batch_size, self.master.hidden_dim).type(self.master.dtype)))
 
-    def _preprocessState(self, state, is_valotile=False):
+    def _preprocessState(self, state, on_policy, is_valotile=False):
         if isinstance(state, list):
             state_vb = []
             for i in range(len(state)):
-                state_vb.append(Variable(torch.from_numpy(state[i]).unsqueeze(0).type(self.master.dtype), volatile=is_valotile))
+                if on_policy:
+                    state_vb.append(Variable(torch.from_numpy(state[i]).unsqueeze(0).type(self.master.dtype), volatile=is_valotile))
+                else:
+                    state_vb.append(Variable(torch.from_numpy(state[i]).view(-1, self.master.state_shape).type(self.master.dtype), volatile=is_valotile))
         else:
-            state_vb = Variable(torch.from_numpy(state).unsqueeze(0).type(self.master.dtype), volatile=is_valotile)
+            if on_policy:
+                state_vb = Variable(torch.from_numpy(state).unsqueeze(0).type(self.master.dtype), volatile=is_valotile)
+            else:
+                state_vb = Variable(torch.from_numpy(state).view(-1, self.master.state_shape).type(self.master.dtype), volatile=is_valotile)
         return state_vb
 
     def _forward(self, state_vb, on_policy=True):
@@ -150,7 +156,7 @@ class ACERLearner(ACERSingleProcess):
             if self.rollout.terminal1[-1]:              # for terminal sT: Q_ret = 0
                 QretT_vb = Variable(torch.zeros(1, 1))
             else:                                       # for non-terminal sT: Qret = V(s_i; /theta)
-                sT_vb = self._preprocessState(self.rollout.state1[-1], True)    # bootstrap from last state
+                sT_vb = self._preprocessState(self.rollout.state1[-1], on_policy, True) # bootstrap from last state
                 if self.master.enable_lstm:
                     _, _, QretT_vb, _ = self.model(sT_vb, self.on_policy_lstm_hidden_vb)# NOTE: only doing inference here
                 else:
@@ -160,7 +166,7 @@ class ACERLearner(ACERSingleProcess):
                 # # NOTE: then all the follow-up computations would only give volatile loss variables
                 # QretT_vb = Variable(QretT_vb.data)
         else:
-            sT_vb = self._preprocessState(self.rollout.state1[-1], True)        # bootstrap from last state
+            sT_vb = self._preprocessState(self.rollout.state1[-1], on_policy, True)     # bootstrap from last state
             if self.master.enable_lstm:
                 _, _, QretT_vb, _ = self.model(sT_vb, self.off_policy_lstm_hidden_vb)   # NOTE: only doing inference here
             else:
@@ -353,7 +359,7 @@ class ACERLearner(ACERSingleProcess):
             if self.master.enable_continuous:
                 pass
             else:
-                action, p_vb, q_vb, v_vb, avg_p_vb = self._forward(self._preprocessState(self.experience.state1), on_policy=True)
+                action, p_vb, q_vb, v_vb, avg_p_vb = self._forward(self._preprocessState(self.experience.state1, on_policy=True), on_policy=True)
             # then execute action in env to get a new experience.state1 -> rollout.state1
             self.experience = self.env.step(action)
             # push experience into rollout
@@ -416,7 +422,7 @@ class ACERLearner(ACERSingleProcess):
             if self.master.enable_continuous:
                 pass
             else:
-                _, p_vb, q_vb, v_vb, avg_p_vb = self._forward(self._preprocessState(self.rollout.state0[-1]), on_policy=False)
+                _, p_vb, q_vb, v_vb, avg_p_vb = self._forward(self._preprocessState(self.rollout.state0[-1], on_policy=False), on_policy=False)
             # push experience into rollout
             self.rollout.action.append(action)
             self.rollout.reward.append(reward)
@@ -598,7 +604,7 @@ class ACEREvaluator(ACERSingleProcess):
             if self.master.enable_continuous:
                 pass
             else:
-                eval_action, p_vb, _, v_vb, _ = self._forward(self._preprocessState(self.experience.state1, True), on_policy=True)
+                eval_action, p_vb, _, v_vb, _ = self._forward(self._preprocessState(self.experience.state1, True, True), on_policy=True)
             self.experience = self.env.step(eval_action)
             if not self.training:
                 if self.master.visualize: self.env.visual()
@@ -765,7 +771,7 @@ class ACERTester(ACERSingleProcess):
             if self.master.enable_continuous:
                 pass
             else:
-                test_action, p_vb, _, v_vb, _ = self._forward(self._preprocessState(self.experience.state1, True), on_policy=True)
+                test_action, p_vb, _, v_vb, _ = self._forward(self._preprocessState(self.experience.state1, True, True), on_policy=True)
             self.experience = self.env.step(test_action)
             if not self.training:
                 if self.master.visualize: self.env.visual()
