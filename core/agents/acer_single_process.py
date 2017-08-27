@@ -546,7 +546,7 @@ class ACEREvaluator(ACERSingleProcess):
             # training stats across all processes
             self.win_p_loss_avg = "win_p_loss_avg"
             self.win_v_loss_avg = "win_v_loss_avg"
-            self.win_entropy_loss_avg = "win_v_loss_avg"
+            self.win_entropy_loss_avg = "win_entropy_loss_avg"
             # evaluation stats
             self.win_entropy_avg = "win_entropy_avg"
             self.win_v_avg = "win_v_avg"
