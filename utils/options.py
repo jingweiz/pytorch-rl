@@ -15,14 +15,15 @@ from optims.sharedRMSprop import SharedRMSprop
 
 CONFIGS = [
 # agent_type, env_type,    game,                       model_type,     memory_type
-[ "empty",    "gym",       "MountainCar-v0",           "empty",        "none"      ],  # 0
+[ "empty",    "atari",     "Boxing-v0",                "empty",        "none"      ],  # 0
 [ "dqn",      "gym",       "CartPole-v0",              "dqn-mlp",      "sequential"],  # 1
 [ "dqn",      "atari-ram", "Pong-ram-v0",              "dqn-mlp",      "sequential"],  # 2
 [ "dqn",      "atari",     "PongDeterministic-v4",     "dqn-cnn",      "sequential"],  # 3
 [ "dqn",      "atari",     "BreakoutDeterministic-v4", "dqn-cnn",      "sequential"],  # 4
 [ "a3c",      "atari",     "PongDeterministic-v4",     "a3c-cnn-dis",  "none"      ],  # 5
 [ "a3c",      "gym",       "InvertedPendulum-v1",      "a3c-mlp-con",  "none"      ],  # 6
-[ "acer",     "gym",       "MountainCar-v0",           "acer-mlp-dis", "episodic"  ]   # 7  # NOTE: acer under testing
+[ "acer",     "gym",       "MountainCar-v0",           "acer-mlp-dis", "episodic"  ],  # 7  # NOTE: acer under testing
+[ "acer",     "atari",     "Boxing-v0",                "acer-cnn-dis", "episodic"  ]   # 8  # NOTE: acer under testing
 ]
 
 class Params(object):   # NOTE: shared across all modules
@@ -30,8 +31,8 @@ class Params(object):   # NOTE: shared across all modules
         self.verbose     = 0            # 0(warning) | 1(info) | 2(debug)
 
         # training signature
-        self.machine     = "aisdaim"    # "machine_id"
-        self.timestamp   = "17082400"   # "yymmdd##"
+        self.machine     = "aisgpu7"    # "machine_id"
+        self.timestamp   = "17082700"   # "yymmdd##"
         # training configuration
         self.mode        = 1            # 1(train) | 2(test model_file)
         self.config      = 7
@@ -250,7 +251,7 @@ class AgentParams(Params):  # hyperparameters for drl agents
             self.gamma               = 0.99
             self.clip_grad           = 40.
             self.lr                  = 0.0001
-            self.lr_decay            = True
+            self.lr_decay            = False
             self.weight_decay        = 1e-4
             self.eval_freq           = 60       # NOTE: here means every this many seconds
             self.eval_steps          = 3000
@@ -267,7 +268,7 @@ class AgentParams(Params):  # hyperparameters for drl agents
 
             self.rollout_steps       = 20       # max look-ahead steps in a single rollout
             self.tau                 = 1.
-            self.beta                = 1e-3     # coefficient for entropy penalty
+            self.beta                = 1e-2     # coefficient for entropy penalty
         else:
             self.steps               = 1000000  # max #iterations
             self.early_stop          = None     # max #steps per episode
