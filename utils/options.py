@@ -15,14 +15,14 @@ from optims.sharedRMSprop import SharedRMSprop
 
 CONFIGS = [
 # agent_type, env_type,    game,                       model_type,     memory_type
-[ "empty",    "atari",     "Boxing-v0",                "empty",        "none"      ],  # 0
+[ "empty",    "gym",       "CartPole-v0",              "empty",        "none"      ],  # 0
 [ "dqn",      "gym",       "CartPole-v0",              "dqn-mlp",      "sequential"],  # 1
 [ "dqn",      "atari-ram", "Pong-ram-v0",              "dqn-mlp",      "sequential"],  # 2
 [ "dqn",      "atari",     "PongDeterministic-v4",     "dqn-cnn",      "sequential"],  # 3
 [ "dqn",      "atari",     "BreakoutDeterministic-v4", "dqn-cnn",      "sequential"],  # 4
 [ "a3c",      "atari",     "PongDeterministic-v4",     "a3c-cnn-dis",  "none"      ],  # 5
 [ "a3c",      "gym",       "InvertedPendulum-v1",      "a3c-mlp-con",  "none"      ],  # 6
-[ "acer",     "gym",       "MountainCar-v0",           "acer-mlp-dis", "episodic"  ],  # 7  # NOTE: acer under testing
+[ "acer",     "gym",       "CartPole-v0",              "acer-mlp-dis", "episodic"  ],  # 7  # NOTE: acer under testing
 [ "acer",     "atari",     "Boxing-v0",                "acer-cnn-dis", "episodic"  ]   # 8  # NOTE: acer under testing
 ]
 
@@ -31,8 +31,8 @@ class Params(object):   # NOTE: shared across all modules
         self.verbose     = 0            # 0(warning) | 1(info) | 2(debug)
 
         # training signature
-        self.machine     = "aisgpu7"    # "machine_id"
-        self.timestamp   = "17082700"   # "yymmdd##"
+        self.machine     = "aisgpu8"    # "machine_id"
+        self.timestamp   = "17082701"   # "yymmdd##"
         # training configuration
         self.mode        = 1            # 1(train) | 2(test model_file)
         self.config      = 7
