@@ -22,7 +22,8 @@ CONFIGS = [
 [ "dqn",      "atari",     "BreakoutDeterministic-v4", "dqn-cnn",      "sequential"],  # 4
 [ "a3c",      "atari",     "PongDeterministic-v4",     "a3c-cnn-dis",  "none"      ],  # 5
 [ "a3c",      "gym",       "InvertedPendulum-v1",      "a3c-mlp-con",  "none"      ],  # 6
-[ "acer",     "gym",       "MountainCar-v0",           "acer-mlp-dis", "episodic"  ]   # 7  # NOTE: acer under testing
+[ "acer",     "gym",       "MountainCar-v0",           "acer-mlp-dis", "episodic"  ],   # 7  # NOTE: acer under testing
+[ "dqn",      "opensim",     "opensim", "dqn-mlp-con",      "sequential"]  # 8
 ]
 
 class Params(object):   # NOTE: shared across all modules
@@ -30,11 +31,11 @@ class Params(object):   # NOTE: shared across all modules
         self.verbose     = 0            # 0(warning) | 1(info) | 2(debug)
 
         # training signature
-        self.machine     = "aisdaim"    # "machine_id"
-        self.timestamp   = "17082400"   # "yymmdd##"
+        self.machine     = "hpc011"    # "machine_id"
+        self.timestamp   = "1"   # "yymmdd##"
         # training configuration
         self.mode        = 1            # 1(train) | 2(test model_file)
-        self.config      = 7
+        self.config      = 8
 
         self.seed        = 123
         self.render      = False        # whether render the window from the original envs or not
@@ -53,7 +54,7 @@ class Params(object):   # NOTE: shared across all modules
                 self.hidden_dim     = 16
             else:
                 self.hist_len       = 4
-                self.hidden_dim     = 256
+                self.hidden_dim     = 512#256
 
             self.use_cuda           = torch.cuda.is_available()
             self.dtype              = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
@@ -139,8 +140,12 @@ class EnvParams(Params):    # settings for simulation environment
             self.wid_state = 80
             self.preprocess_mode = 3  # 0(nothing) | 1(rgb2gray) | 2(rgb2y) | 3(crop&resize depth)
             self.img_encoding_type = "passthrough"
+
+        elif self.env_type == "opensim":
+            pass
+
         else:
-            assert False, "env_type must be: gym | atari-ram | atari | lab"
+            assert False, "env_type must be: gym | atari-ram | atari | lab | opensim"
 
 class ModelParams(Params):  # settings for network architecture
     def __init__(self):
@@ -228,6 +233,31 @@ class AgentParams(Params):  # hyperparameters for drl agents
             self.action_repetition   = 4
             self.memory_interval     = 1
             self.train_interval      = 4
+        elif self.agent_type == "dqn" and self.env_type == "opensim":
+            self.steps               = 50000000 # max #iterations
+            self.early_stop          = None     # max #steps per episode
+            self.gamma               = 0.99
+            self.clip_grad           = 40.#np.inf
+            self.lr                  = 0.00025
+            self.lr_decay            = False
+            self.weight_decay        = 0.
+            self.eval_freq           = 250000#12500    # NOTE: here means every this many steps
+            self.eval_steps          = 125000#2500
+            self.prog_freq           = 10000#self.eval_freq
+            self.test_nepisodes      = 1
+
+            self.learn_start         = 50000    # start update params after this many steps
+            self.batch_size          = 32
+            self.valid_size          = 500
+            self.eps_start           = 1
+            self.eps_end             = 0.1
+            self.eps_eval            = 0.#0.05
+            self.eps_decay           = 1000000
+            self.target_model_update = 10000
+            self.action_repetition   = 4
+            self.memory_interval     = 1
+            self.train_interval      = 4
+
         elif self.agent_type == "a3c":
             self.steps               = 20000000 # max #iterations
             self.early_stop          = None     # max #steps per episode
