@@ -108,6 +108,7 @@ NOTE: we follow the exact code structure as [pytorch-dnc](https://github.com/jin
 - [Visdom](https://github.com/facebookresearch/visdom)
 - [OpenAI Gym >=v0.9.0 (for lower versoins, just need to change into the available games, e.g. change PongDeterministic-v4 to PongDeterministic-v3)](https://github.com/openai/gym)
 - [mujoco-py (Optional: for training continuous version of a3c)](https://github.com/openai/mujoco-py)
+- [opensim-rl (Optional: for training in Opensim-rl environment) (https://github.com/stanfordnmbl/osim-rl)
 *******
 
 
