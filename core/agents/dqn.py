@@ -150,7 +150,7 @@ class DQNAgent(Agent):
             self.eps = self.eps_eval
         # choose action
         if np.random.uniform() < self.eps:  # then we choose a random action
-            action = np.random.rand(self.action_dim).tolist()
+            action = random.randrange(self.action_dim)
         else:                               # then we choose the greedy action
             if self.use_cuda:
                 action = np.argmax(q_values_ts.cpu().numpy())
@@ -164,7 +164,7 @@ class DQNAgent(Agent):
         state_ts = torch.from_numpy(np.array(state)).unsqueeze(0).type(self.dtype)
         q_values_ts = self.model(Variable(state_ts, volatile=True)).data # NOTE: only doing inference here, so volatile=True
         if self.training and self.step < self.learn_start:  # then we don't do any learning, just accumulate experiences into replay memory
-            action = np.random.rand(self.action_dim).tolist()      # thus we only randomly sample actions here, since the model hasn't been updated at all till now
+            action = random.randrange(self.action_dim)      # thus we only randomly sample actions here, since the model hasn't been updated at all till now
         else:
             action = self._epsilon_greedy(q_values_ts)
 
