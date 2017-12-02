@@ -6,10 +6,12 @@ from core.envs.gym import GymEnv
 from core.envs.atari_ram import AtariRamEnv
 from core.envs.atari import AtariEnv
 from core.envs.lab import LabEnv
+from core.envs.opensim import OpenSim
 EnvDict = {"gym":       GymEnv,                 # classic control games from openai w/ low-level   input
            "atari-ram": AtariRamEnv,            # atari integrations from openai, with low-level   input
            "atari":     AtariEnv,               # atari integrations from openai, with pixel-level input
-           "lab":       LabEnv}
+           "lab":       LabEnv,
+	   "opensim": OpenSim}
 
 from core.models.empty import EmptyModel
 from core.models.dqn_mlp import DQNMlpModel
@@ -20,6 +22,7 @@ from core.models.acer_mlp_dis import ACERMlpDisModel
 from core.models.acer_cnn_dis import ACERCnnDisModel
 ModelDict = {"empty":        EmptyModel,        # contains nothing, only should be used w/ EmptyAgent
              "dqn-mlp":      DQNMlpModel,       # for dqn low-level    input
+             "dqn-mlp-con":  DQNMlpModel,       # for dqn low-level    input
              "dqn-cnn":      DQNCnnModel,       # for dqn pixel-level  input
              "a3c-mlp-con":  A3CMlpConModel,    # for a3c low-level    input (NOTE: continuous must end in "-con")
              "a3c-cnn-dis":  A3CCnnDisModel,    # for a3c pixel-level  input
