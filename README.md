@@ -146,3 +146,16 @@ We also provide 2 additional scripts for quickly evaluating your results after t
 * [onlytailei/A3C-PyTorch](https://github.com/onlytailei/A3C-PyTorch)
 * [Kaixhin/ACER](https://github.com/Kaixhin/ACER)
 * And a private implementation of A3C from [@stokasto](https://github.com/stokasto)
+*******
+
+
+## Citation
+If you find this library useful and would like to cite it, the following would be appropriate:
+```
+@misc{pytorch-rl,
+  author = {Zhang, Jingwei and Tai, Lei},
+  title = {jingweiz/pytorch-rl},
+  url = {https://github.com/jingweiz/pytorch-rl},
+  year = {2017}
+}
+```
