@@ -51,11 +51,11 @@ class Env(object):
                           terminal1 = self.exp_terminal1)
 
     def _preprocessState(self, state):
-        raise NotImplementedError("not implemented in base calss")
+        raise NotImplementedError("not implemented in base class")
 
     @property
     def state_shape(self):
-        raise NotImplementedError("not implemented in base calss")
+        raise NotImplementedError("not implemented in base class")
 
     @property
     def action_dim(self):
@@ -65,13 +65,13 @@ class Env(object):
             return self.env.action_space.n
 
     def render(self):       # render using the original gl window
-        raise NotImplementedError("not implemented in base calss")
+        raise NotImplementedError("not implemented in base class")
 
     def visual(self):       # visualize onto visdom
-        raise NotImplementedError("not implemented in base calss")
+        raise NotImplementedError("not implemented in base class")
 
     def reset(self):
-        raise NotImplementedError("not implemented in base calss")
+        raise NotImplementedError("not implemented in base class")
 
     def step(self, action):
-        raise NotImplementedError("not implemented in base calss")
+        raise NotImplementedError("not implemented in base class")
