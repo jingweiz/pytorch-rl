@@ -31,7 +31,7 @@ class Model(nn.Module):
         self.output_dims    = args.action_dim
 
     def _init_weights(self):
-        raise NotImplementedError("not implemented in base calss")
+        raise NotImplementedError("not implemented in base class")
 
     def print_model(self):
         self.logger.warning("<-----------------------------------> Model")
@@ -43,4 +43,4 @@ class Model(nn.Module):
         self.print_model()
 
     def forward(self, input):
-        raise NotImplementedError("not implemented in base calss")
+        raise NotImplementedError("not implemented in base class")

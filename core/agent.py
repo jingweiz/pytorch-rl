@@ -134,16 +134,16 @@ class Agent(object):
             self.logger.warning("Saved  Model    @ Step: " + str(step) + ": " + self.model_name + ".")
 
     def _forward(self, observation):
-        raise NotImplementedError("not implemented in base calss")
+        raise NotImplementedError("not implemented in base class")
 
     def _backward(self, reward, terminal):
-        raise NotImplementedError("not implemented in base calss")
+        raise NotImplementedError("not implemented in base class")
 
     def _eval_model(self):  # evaluation during training
-        raise NotImplementedError("not implemented in base calss")
+        raise NotImplementedError("not implemented in base class")
 
     def fit_model(self):    # training
-        raise NotImplementedError("not implemented in base calss")
+        raise NotImplementedError("not implemented in base class")
 
     def test_model(self):   # testing pre-trained models
-        raise NotImplementedError("not implemented in base calss")
+        raise NotImplementedError("not implemented in base class")

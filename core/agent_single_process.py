@@ -53,10 +53,10 @@ class AgentSingleProcess(mp.Process):
             global_param._grad = local_param.grad
 
     def _forward(self, observation):
-        raise NotImplementedError("not implemented in base calss")
+        raise NotImplementedError("not implemented in base class")
 
     def _backward(self, reward, terminal):
-        raise NotImplementedError("not implemented in base calss")
+        raise NotImplementedError("not implemented in base class")
 
     def run(self):
-        raise NotImplementedError("not implemented in base calss")
+        raise NotImplementedError("not implemented in base class")
